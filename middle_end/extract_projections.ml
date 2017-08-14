@@ -52,8 +52,17 @@ let known_valid_projections ~env ~projections ~which_variables =
       | Project_closure project_closure ->
         begin match A.strict_check_approx_for_set_of_closures approx with
         | Ok (_var, value_set_of_closures) ->
+          let variable_ids =
+            match value_set_of_closures.closure_decls with
+            | Normal { function_decls; invariant_params = _; size = _ } ->
+              Variable.Map.keys function_decls.funs
+            | Classic {
+              funs ; set_of_closures_id = _; set_of_closures_origin = _ } ->
+              Variable.Map.keys funs
+          in
           Variable.Set.mem (Closure_id.unwrap project_closure.closure_id)
-            (Variable.Map.keys value_set_of_closures.function_decls.funs)
+            variable_ids
+
         | Wrong -> false
         end
       | Move_within_set_of_closures move ->

@@ -681,93 +681,101 @@ and simplify_apply env r ~(apply : Flambda.apply) : Flambda.t * R.t =
            (even if the application is currently [Indirect]).  If
            successful---in which case we then have a direct
            application---consider inlining. *)
+        let default =
+          (Flambda.Apply {
+             func = lhs_of_application; args; kind = Indirect; dbg;
+             inline = inline_requested; specialise = specialise_requested; },
+           ret r (A.value_unknown Other))
+        in
         match A.check_approx_for_closure lhs_of_application_approx with
+        | Wrong ->
+          (* Insufficient approximation information to simplify. *)
+          default
         | Ok (value_closure, set_of_closures_var,
               set_of_closures_symbol, value_set_of_closures) ->
-          let lhs_of_application, closure_id_being_applied,
-                value_set_of_closures, env, wrap =
-            let closure_id_being_applied = value_closure.closure_id in
-            (* If the call site is a direct call to a function that has a
-               "direct call surrogate" (see inline_and_simplify_aux.mli),
-               repoint the call to the surrogate. *)
-            let surrogates = value_set_of_closures.direct_call_surrogates in
-            match Closure_id.Map.find closure_id_being_applied surrogates with
-            | exception Not_found ->
-              lhs_of_application, closure_id_being_applied,
-                value_set_of_closures, env, (fun expr -> expr)
-            | surrogate ->
-              let rec find_transitively surrogate =
-                match Closure_id.Map.find surrogate surrogates with
-                | exception Not_found -> surrogate
-                | surrogate -> find_transitively surrogate
-              in
-              let surrogate = find_transitively surrogate in
-              let surrogate_var =
-                Variable.rename lhs_of_application ~append:"_surrogate"
-              in
-              let move_to_surrogate : Projection.move_within_set_of_closures =
-                { closure = lhs_of_application;
-                  start_from = closure_id_being_applied;
-                  move_to = surrogate;
-                }
-              in
-              let approx_for_surrogate =
-                A.value_closure ~closure_var:surrogate_var
-                  ?set_of_closures_var ?set_of_closures_symbol
-                  value_set_of_closures surrogate
-              in
-              let env = E.add env surrogate_var approx_for_surrogate in
-              let wrap expr =
-                Flambda.create_let surrogate_var
-                  (Move_within_set_of_closures move_to_surrogate)
-                  expr
-              in
-              surrogate_var, surrogate, value_set_of_closures, env, wrap
-          in
-          let function_decls = value_set_of_closures.function_decls in
-          let function_decl =
-            try
-              Flambda_utils.find_declaration closure_id_being_applied
-                function_decls
-            with
-            | Not_found ->
-              Misc.fatal_errorf "When handling application expression, \
-                  approximation references non-existent closure %a@."
-                Closure_id.print closure_id_being_applied
-          in
-          let r =
-            match apply.kind with
-            | Indirect ->
-              R.map_benefit r Inlining_cost.Benefit.direct_call_of_indirect
-            | Direct _ -> r
-          in
-          let nargs = List.length args in
-          let arity = Flambda_utils.function_arity function_decl in
-          let result, r =
-            if nargs = arity then
-              simplify_full_application env r ~function_decls
-                ~lhs_of_application ~closure_id_being_applied ~function_decl
-                ~value_set_of_closures ~args ~args_approxs ~dbg
-                ~inline_requested ~specialise_requested
-            else if nargs > arity then
-              simplify_over_application env r ~args ~args_approxs
-                ~function_decls ~lhs_of_application ~closure_id_being_applied
-                ~function_decl ~value_set_of_closures ~dbg ~inline_requested
-                ~specialise_requested
-            else if nargs > 0 && nargs < arity then
-              simplify_partial_application env r ~lhs_of_application
-                ~closure_id_being_applied ~function_decl ~args ~dbg
-                ~inline_requested ~specialise_requested
-            else
-              Misc.fatal_errorf "Function with arity %d when simplifying \
-                  application expression: %a"
-                arity Flambda.print (Flambda.Apply apply)
-          in
-          wrap result, r
-        | Wrong ->  (* Insufficient approximation information to simplify. *)
-          Apply ({ func = lhs_of_application; args; kind = Indirect; dbg;
-              inline = inline_requested; specialise = specialise_requested; }),
-            ret r (A.value_unknown Other)))
+          match value_set_of_closures.closure_decls with
+          | Classic _ ->
+            default
+          | Normal { function_decls ; invariant_params = _ ; size = _  } ->
+            let lhs_of_application, closure_id_being_applied,
+                  value_set_of_closures, env, wrap =
+              let closure_id_being_applied = value_closure.closure_id in
+              (* If the call site is a direct call to a function that has a
+                 "direct call surrogate" (see inline_and_simplify_aux.mli),
+                 repoint the call to the surrogate. *)
+              let surrogates = value_set_of_closures.direct_call_surrogates in
+              match Closure_id.Map.find closure_id_being_applied surrogates with
+              | exception Not_found ->
+                lhs_of_application, closure_id_being_applied,
+                  value_set_of_closures, env, (fun expr -> expr)
+              | surrogate ->
+                let rec find_transitively surrogate =
+                  match Closure_id.Map.find surrogate surrogates with
+                  | exception Not_found -> surrogate
+                  | surrogate -> find_transitively surrogate
+                in
+                let surrogate = find_transitively surrogate in
+                let surrogate_var =
+                  Variable.rename lhs_of_application ~append:"_surrogate"
+                in
+                let move_to_surrogate : Projection.move_within_set_of_closures =
+                  { closure = lhs_of_application;
+                    start_from = closure_id_being_applied;
+                    move_to = surrogate;
+                  }
+                in
+                let approx_for_surrogate =
+                  A.value_closure ~closure_var:surrogate_var
+                    ?set_of_closures_var ?set_of_closures_symbol
+                    value_set_of_closures surrogate
+                in
+                let env = E.add env surrogate_var approx_for_surrogate in
+                let wrap expr =
+                  Flambda.create_let surrogate_var
+                    (Move_within_set_of_closures move_to_surrogate)
+                    expr
+                in
+                surrogate_var, surrogate, value_set_of_closures, env, wrap
+            in
+            let function_decl =
+              try
+                Flambda_utils.find_declaration closure_id_being_applied
+                  function_decls
+              with
+              | Not_found ->
+                Misc.fatal_errorf "When handling application expression, \
+                    approximation references non-existent closure %a@."
+                  Closure_id.print closure_id_being_applied
+            in
+            let r =
+              match apply.kind with
+              | Indirect ->
+                R.map_benefit r Inlining_cost.Benefit.direct_call_of_indirect
+              | Direct _ -> r
+            in
+            let nargs = List.length args in
+            let arity = Flambda_utils.function_arity function_decl in
+            let result, r =
+              if nargs = arity then
+                simplify_full_application env r ~function_decls
+                  ~lhs_of_application ~closure_id_being_applied ~function_decl
+                  ~value_set_of_closures ~args ~args_approxs ~dbg
+                  ~inline_requested ~specialise_requested
+              else if nargs > arity then
+                simplify_over_application env r ~args ~args_approxs
+                  ~function_decls ~lhs_of_application ~closure_id_being_applied
+                  ~function_decl ~value_set_of_closures ~dbg ~inline_requested
+                  ~specialise_requested
+              else if nargs > 0 && nargs < arity then
+                simplify_partial_application env r ~lhs_of_application
+                  ~closure_id_being_applied ~function_decl ~args ~dbg
+                  ~inline_requested ~specialise_requested
+              else
+                Misc.fatal_errorf "Function with arity %d when simplifying \
+                    application expression: %a"
+                  arity Flambda.print (Flambda.Apply apply)
+            in
+            wrap result, r))
 
 and simplify_full_application env r ~function_decls ~lhs_of_application
       ~closure_id_being_applied ~function_decl ~value_set_of_closures ~args

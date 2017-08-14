@@ -143,15 +143,25 @@ and value_closure = {
   closure_id : Closure_id.t;
 }
 
+and closure_declarations =
+  | Normal of {
+    function_decls : Flambda.function_declarations;
+    invariant_params : Variable.Set.t Variable.Map.t lazy_t;
+    (** For functions that are very likely to be inlined, the size of the
+        function's body. *)
+    size : int option Variable.Map.t lazy_t
+  }
+  | Classic of {
+    set_of_closures_id : Set_of_closures_id.t;
+    set_of_closures_origin : Set_of_closures_origin.t;
+    funs : Flambda.function_declaration option Variable.Map.t;
+  }
+
 (* CR-soon mshinwell: add support for the approximations of the results, so we
    can do all of the tricky higher-order cases. *)
 and value_set_of_closures = private {
-  function_decls : Flambda.function_declarations;
+  closure_decls: closure_declarations;
   bound_vars : t Var_within_closure.Map.t;
-  invariant_params : Variable.Set.t Variable.Map.t lazy_t;
-  size : int option Variable.Map.t lazy_t;
-  (** For functions that are very likely to be inlined, the size of the
-      function's body. *)
   specialised_args : Flambda.specialised_to Variable.Map.t;
   (* Any freshening that has been applied to [function_decls]. *)
   freshening : Freshening.Project_var.t;

@@ -328,15 +328,6 @@ let specialise env r ~lhs_of_application
            Variable.Set.mem (Var_within_closure.unwrap var) bound_vars_required)
          value_set_of_closures.bound_vars)
   in
-  let invariant_params = value_set_of_closures.invariant_params in
-  let has_no_useful_approxes =
-    lazy
-      (List.for_all2
-         (fun id approx ->
-            not ((A.useful approx)
-                 && Variable.Map.mem id (Lazy.force invariant_params)))
-         (Parameter.List.vars function_decl.params) args_approxs)
-  in
   let always_specialise, never_specialise =
     (* Merge call site annotation and function annotation.
        The call site annotation takes precedence *)
@@ -354,111 +345,67 @@ let specialise env r ~lhs_of_application
     if always_specialise then inlining_threshold
     else Lazy.force fun_cost
   in
-  let try_specialising =
-    (* Try specialising if the function:
-       - is recursive; and
-       - is closed (it and all other members of the set of closures on which
+  match value_set_of_closures.closure_decls with
+  | Classic _ -> Original S.Not_specialised.Classic_mode
+  | Normal { invariant_params; function_decls = _ ; size = _ } ->
+    let has_no_useful_approxes =
+      lazy
+        (List.for_all2
+           (fun id approx ->
+              not ((A.useful approx)
+                   && Variable.Map.mem id (Lazy.force invariant_params)))
+           (Parameter.List.vars function_decl.params) args_approxs)
+    in
+    let try_specialising =
+      (* Try specialising if the function:
+         - is recursive; and
+         - is closed (it and all other members of the set of closures on which
          it depends); and
-       - has useful approximations for some invariant parameters. *)
-    if !Clflags.classic_inlining then
-      Don't_try_it S.Not_specialised.Classic_mode
-    else if self_call then
-      Don't_try_it S.Not_specialised.Self_call
-    else if always_specialise && not (Lazy.force has_no_useful_approxes) then
-      Try_it
-    else if never_specialise then
-      Don't_try_it S.Not_specialised.Annotation
-    else if remaining_inlining_threshold = T.Never_inline then
-      let threshold =
-        match inlining_threshold with
-        | T.Never_inline -> assert false
-        | T.Can_inline_if_no_larger_than threshold -> threshold
-      in
-      Don't_try_it (S.Not_specialised.Above_threshold threshold)
-    else if not (Var_within_closure.Map.is_empty (Lazy.force bound_vars)) then
-      Don't_try_it S.Not_specialised.Not_closed
-    else if not (Lazy.force recursive) then
-      Don't_try_it S.Not_specialised.Not_recursive
-    else if Variable.Map.is_empty (Lazy.force invariant_params) then
-      Don't_try_it S.Not_specialised.No_invariant_parameters
-    else if Lazy.force has_no_useful_approxes then
-      Don't_try_it S.Not_specialised.No_useful_approximations
-    else Try_it
-  in
-  match try_specialising with
-  | Don't_try_it decision -> Original decision
-  | Try_it -> begin
-      let r =
-        R.set_inlining_threshold r (Some remaining_inlining_threshold)
-      in
-      let copied_function_declaration =
-        Inlining_transforms.inline_by_copying_function_declaration ~env
-          ~r:(R.reset_benefit r) ~lhs_of_application
-          ~function_decls ~closure_id_being_applied ~function_decl
-          ~args ~args_approxs
-          ~invariant_params:value_set_of_closures.invariant_params
-          ~specialised_args:value_set_of_closures.specialised_args
-          ~direct_call_surrogates:value_set_of_closures.direct_call_surrogates
-          ~dbg ~simplify ~inline_requested
-      in
-      match copied_function_declaration with
-      | Some (expr, r_inlined) ->
-        let wsb =
-          W.create ~original expr
-            ~toplevel:false
-            ~branch_depth:(E.branch_depth env)
-            ~lifting:false
-            ~round:(E.round env)
-            ~benefit:(R.benefit r_inlined)
+         - has useful approximations for some invariant parameters. *)
+      if !Clflags.classic_inlining then
+        Don't_try_it S.Not_specialised.Classic_mode
+      else if self_call then
+        Don't_try_it S.Not_specialised.Self_call
+      else if always_specialise && not (Lazy.force has_no_useful_approxes) then
+        Try_it
+      else if never_specialise then
+        Don't_try_it S.Not_specialised.Annotation
+      else if remaining_inlining_threshold = T.Never_inline then
+        let threshold =
+          match inlining_threshold with
+          | T.Never_inline -> assert false
+          | T.Can_inline_if_no_larger_than threshold -> threshold
         in
-        let env =
-          (* CR-someday lwhite: could avoid calculating this if stats is turned
-             off *)
-          let closure_ids =
-            Closure_id.Set.of_list (
-              List.map Closure_id.wrap
-                (Variable.Set.elements (Variable.Map.keys function_decls.funs)))
-          in
-          E.note_entering_specialised env ~closure_ids
+        Don't_try_it (S.Not_specialised.Above_threshold threshold)
+      else if not (Var_within_closure.Map.is_empty (Lazy.force bound_vars)) then
+        Don't_try_it S.Not_specialised.Not_closed
+      else if not (Lazy.force recursive) then
+        Don't_try_it S.Not_specialised.Not_recursive
+      else if Variable.Map.is_empty (Lazy.force invariant_params) then
+        Don't_try_it S.Not_specialised.No_invariant_parameters
+      else if Lazy.force has_no_useful_approxes then
+        Don't_try_it S.Not_specialised.No_useful_approximations
+      else Try_it
+    in
+    match try_specialising with
+    | Don't_try_it decision -> Original decision
+    | Try_it -> begin
+        let r =
+          R.set_inlining_threshold r (Some remaining_inlining_threshold)
         in
-        if always_specialise || W.evaluate wsb then begin
-          let r_inlined =
-            if always_specialise then
-              R.map_benefit r_inlined
-                (Inlining_cost.Benefit.max ~round:(E.round env)
-                   Inlining_cost.Benefit.(requested_inline ~size_of:expr zero))
-            else r_inlined
-          in
-          let r =
-            R.map_benefit r_inlined (Inlining_cost.Benefit.(+) (R.benefit r))
-          in
-          let closure_env =
-            let env =
-              if E.inlining_level env = 0
-               (* If the function was considered for specialising without
-                  considering its sub-functions, and it is not below another
-                  inlining choice, then we are certain that this code will
-                  be kept. *)
-              then env
-              else E.inlining_level_up env
-            in
-              E.set_never_inline_outside_closures env
-          in
-          let application_env = E.set_never_inline_inside_closures env in
-          let expr, r = simplify closure_env r expr in
-          let res = simplify application_env r expr in
-          let decision =
-            if always_specialise then S.Specialised.Annotation
-            else S.Specialised.Without_subfunctions wsb
-          in
-          Changed (res, decision)
-        end else begin
-          let closure_env =
-            let env = E.inlining_level_up env in
-            E.set_never_inline_outside_closures env
-          in
-          let expr, r_inlined = simplify closure_env r_inlined expr in
-          let wsb_with_subfunctions =
+        let copied_function_declaration =
+          Inlining_transforms.inline_by_copying_function_declaration ~env
+            ~r:(R.reset_benefit r) ~lhs_of_application
+            ~function_decls ~closure_id_being_applied ~function_decl
+            ~args ~args_approxs
+            ~invariant_params
+            ~specialised_args:value_set_of_closures.specialised_args
+            ~direct_call_surrogates:value_set_of_closures.direct_call_surrogates
+            ~dbg ~simplify ~inline_requested
+        in
+        match copied_function_declaration with
+        | Some (expr, r_inlined) ->
+          let wsb =
             W.create ~original expr
               ~toplevel:false
               ~branch_depth:(E.branch_depth env)
@@ -466,28 +413,83 @@ let specialise env r ~lhs_of_application
               ~round:(E.round env)
               ~benefit:(R.benefit r_inlined)
           in
-          if W.evaluate wsb_with_subfunctions then begin
-             let r =
-               R.map_benefit r_inlined
-                        (Inlining_cost.Benefit.(+) (R.benefit r))
-             in
-             let application_env = E.set_never_inline_inside_closures env in
-             let res = simplify application_env r expr in
-             let decision =
-               S.Specialised.With_subfunctions (wsb, wsb_with_subfunctions)
-             in
-             Changed (res, decision)
-          end else begin
-            let decision =
-              S.Not_specialised.Not_beneficial (wsb, wsb_with_subfunctions)
+          let env =
+            (* CR-someday lwhite: could avoid calculating this if stats is turned
+               off *)
+            let closure_ids =
+              Closure_id.Set.of_list (
+                List.map Closure_id.wrap
+                  (Variable.Set.elements (Variable.Map.keys function_decls.funs)))
             in
-            Original decision
+            E.note_entering_specialised env ~closure_ids
+          in
+          if always_specialise || W.evaluate wsb then begin
+            let r_inlined =
+              if always_specialise then
+                R.map_benefit r_inlined
+                  (Inlining_cost.Benefit.max ~round:(E.round env)
+                     Inlining_cost.Benefit.(requested_inline ~size_of:expr zero))
+              else r_inlined
+            in
+            let r =
+              R.map_benefit r_inlined (Inlining_cost.Benefit.(+) (R.benefit r))
+            in
+            let closure_env =
+              let env =
+                if E.inlining_level env = 0
+                (* If the function was considered for specialising without
+                   considering its sub-functions, and it is not below another
+                   inlining choice, then we are certain that this code will
+                   be kept. *)
+                then env
+                else E.inlining_level_up env
+              in
+              E.set_never_inline_outside_closures env
+            in
+            let application_env = E.set_never_inline_inside_closures env in
+            let expr, r = simplify closure_env r expr in
+            let res = simplify application_env r expr in
+            let decision =
+              if always_specialise then S.Specialised.Annotation
+              else S.Specialised.Without_subfunctions wsb
+            in
+            Changed (res, decision)
+          end else begin
+            let closure_env =
+              let env = E.inlining_level_up env in
+              E.set_never_inline_outside_closures env
+            in
+            let expr, r_inlined = simplify closure_env r_inlined expr in
+            let wsb_with_subfunctions =
+              W.create ~original expr
+                ~toplevel:false
+                ~branch_depth:(E.branch_depth env)
+                ~lifting:false
+                ~round:(E.round env)
+                ~benefit:(R.benefit r_inlined)
+            in
+            if W.evaluate wsb_with_subfunctions then begin
+              let r =
+                R.map_benefit r_inlined
+                  (Inlining_cost.Benefit.(+) (R.benefit r))
+              in
+              let application_env = E.set_never_inline_inside_closures env in
+              let res = simplify application_env r expr in
+              let decision =
+                S.Specialised.With_subfunctions (wsb, wsb_with_subfunctions)
+              in
+              Changed (res, decision)
+            end else begin
+              let decision =
+                S.Not_specialised.Not_beneficial (wsb, wsb_with_subfunctions)
+              in
+              Original decision
+            end
           end
-        end
-      | None ->
-        let decision = S.Not_specialised.No_useful_approximations in
-        Original decision
-    end
+        | None ->
+          let decision = S.Not_specialised.No_useful_approximations in
+          Original decision
+      end
 
 let for_call_site ~env ~r ~(function_decls : Flambda.function_declarations)
       ~lhs_of_application ~closure_id_being_applied
@@ -615,13 +617,15 @@ let for_call_site ~env ~r ~(function_decls : Flambda.function_declarations)
           let only_use_of_function = false in
           (* If we didn't specialise then try inlining *)
           let size_from_approximation =
-            match
-              Variable.Map.find fun_var (Lazy.force value_set_of_closures.size)
-            with
-            | size -> size
-            | exception Not_found ->
-                Misc.fatal_errorf "Approximation does not give a size for the \
-                  function having fun_var %a.  value_set_of_closures: %a"
+            match value_set_of_closures.closure_decls with
+            | A.Classic _ ->
+              Misc.fatal_error "Cannot inline a function in classic mode"
+            | A.Normal { size; function_decls = _; invariant_params = _ } ->
+              match Variable.Map.find fun_var (Lazy.force size) with
+              | size -> size
+              | exception Not_found ->
+                Misc.fatal_errorf "Approximation does not give a size for \
+                  the function having fun_var %a. value_set_of_closures: %a"
                   Variable.print fun_var
                   A.print_value_set_of_closures value_set_of_closures
           in

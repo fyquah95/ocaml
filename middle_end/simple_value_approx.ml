@@ -66,11 +66,21 @@ and value_closure = {
   closure_id : Closure_id.t;
 }
 
+and closure_declarations =
+  | Normal of {
+    function_decls : Flambda.function_declarations;
+    invariant_params : Variable.Set.t Variable.Map.t lazy_t;
+    size : int option Variable.Map.t lazy_t
+  }
+  | Classic of {
+    set_of_closures_id : Set_of_closures_id.t;
+    set_of_closures_origin : Set_of_closures_origin.t;
+    funs : Flambda.function_declaration option Variable.Map.t;
+  }
+
 and value_set_of_closures = {
-  function_decls : Flambda.function_declarations;
+  closure_decls : closure_declarations;
   bound_vars : t Var_within_closure.Map.t;
-  invariant_params : Variable.Set.t Variable.Map.t lazy_t;
-  size : int option Variable.Map.t lazy_t;
   specialised_args : Flambda.specialised_to Variable.Map.t;
   freshening : Freshening.Project_var.t;
   direct_call_surrogates : Closure_id.t Closure_id.Map.t;
@@ -87,12 +97,20 @@ and value_float_array = {
 
 let descr t = t.descr
 
-let print_value_set_of_closures ppf
-      { function_decls = { funs }; invariant_params; freshening; _ } =
-  Format.fprintf ppf "(set_of_closures:@ %a invariant_params=%a freshening=%a)"
-    (fun ppf -> Variable.Map.iter (fun id _ -> Variable.print ppf id)) funs
-    (Variable.Map.print Variable.Set.print) (Lazy.force invariant_params)
-    Freshening.Project_var.print freshening
+let print_value_set_of_closures ppf { closure_decls ; freshening; _ } =
+  match closure_decls with
+  | Normal { function_decls; invariant_params ; size = _ } ->
+    let funs = function_decls.funs in
+    Format.fprintf ppf
+      "(set_of_closures.Normal:@ %a invariant_params=%a freshening=%a)"
+      (fun ppf -> Variable.Map.iter (fun id _ -> Variable.print ppf id)) funs
+      (Variable.Map.print Variable.Set.print) (Lazy.force invariant_params)
+      Freshening.Project_var.print freshening
+  | Classic { funs } ->
+    Format.fprintf ppf
+      "(set_of_closures.Classic:@ %a freshening=%a)"
+      (fun ppf -> Variable.Map.iter (fun id _ -> Variable.print ppf id)) funs
+      Freshening.Project_var.print freshening
 
 let print_unresolved_value ppf = function
   | Set_of_closures_id set ->
@@ -257,10 +275,9 @@ let create_value_set_of_closures
           Inlining_cost.lambda_smaller' function_decl.body ~than:max_size)
         function_decls.funs)
   in
-  { function_decls;
+  let closure_decls = Normal { function_decls; invariant_params; size; } in
+  { closure_decls;
     bound_vars;
-    invariant_params;
-    size;
     specialised_args;
     freshening;
     direct_call_surrogates;
@@ -658,16 +675,30 @@ let freshen_and_check_closure_id
     Freshening.Project_var.apply_closure_id
       value_set_of_closures.freshening closure_id
   in
-  try
-    ignore (Flambda_utils.find_declaration closure_id
-      value_set_of_closures.function_decls);
-    closure_id
-  with Not_found ->
-    Misc.fatal_error (Format.asprintf
-      "Function %a not found in the set of closures@ %a@.%a@."
-      Closure_id.print closure_id
-      print_value_set_of_closures value_set_of_closures
-      Flambda.print_function_declarations value_set_of_closures.function_decls)
+  match value_set_of_closures.closure_decls with
+  | Normal { function_decls; invariant_params = _; size = _; }  ->
+    begin
+      try
+        ignore (Flambda_utils.find_declaration closure_id function_decls);
+        closure_id
+      with Not_found ->
+        Misc.fatal_error (Format.asprintf
+          "Function %a not found in the set of closures@ %a@.%a@."
+          Closure_id.print closure_id
+          print_value_set_of_closures value_set_of_closures
+          Flambda.print_function_declarations function_decls)
+    end
+  | Classic { funs } ->
+    begin
+      try
+        ignore (Variable.Map.find (Closure_id.unwrap closure_id) funs);
+        closure_id
+      with Not_found ->
+        Misc.fatal_error (Format.asprintf
+          "Function %a not found in the classic set of closures@ %a@."
+          Closure_id.print closure_id
+          print_value_set_of_closures value_set_of_closures)
+    end
 
 type checked_approx_for_set_of_closures =
   | Wrong
