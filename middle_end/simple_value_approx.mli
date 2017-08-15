@@ -152,13 +152,6 @@ and function_declarations = {
 and function_declaration = {
   params : Parameter.t list;
   body : Flambda.t;
-  free_variables : Variable.Set.t;
-  free_symbols : Symbol.Set.t;
-  stub : bool;
-  dbg : Debuginfo.t;
-  inline : Lambda.inline_attribute;
-  specialise : Lambda.specialise_attribute;
-  is_a_functor : bool;
 }
 
 (* CR-soon mshinwell: add support for the approximations of the results, so we

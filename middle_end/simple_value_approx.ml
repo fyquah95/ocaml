@@ -75,13 +75,6 @@ and function_declarations = {
 and function_declaration = {
   params : Parameter.t list;
   body : Flambda.t;
-  free_variables : Variable.Set.t;
-  free_symbols : Symbol.Set.t;
-  stub : bool;
-  dbg : Debuginfo.t;
-  inline : Lambda.inline_attribute;
-  specialise : Lambda.specialise_attribute;
-  is_a_functor : bool;
 }
 
 and value_set_of_closures = {
@@ -263,8 +256,9 @@ let create_value_set_of_closures
       Variable.Map.map (fun (function_decl : function_declaration) ->
           let params = Parameter.Set.vars function_decl.params in
           let free_vars =
+            (* CR fquah: The empty set below used to be [function_decl.free_variables] *)
             Variable.Set.diff
-              (Variable.Set.diff function_decl.free_variables params)
+              (Variable.Set.diff Variable.Set.empty params)
               functions
           in
           let num_free_vars = Variable.Set.cardinal free_vars in
@@ -889,13 +883,6 @@ let function_declarations_of_flambda flambda =
       (fun (fun_decl : Flambda.function_declaration) ->
          { params         = fun_decl.params
          ; body           = fun_decl.body
-         ; free_variables = fun_decl.free_variables
-         ; free_symbols   = fun_decl.free_symbols
-         ; stub           = fun_decl.stub
-         ; dbg            = fun_decl.dbg
-         ; inline         = fun_decl.inline
-         ; specialise     = fun_decl.specialise
-         ; is_a_functor   = fun_decl.is_a_functor
          })
       funs
   in
@@ -904,11 +891,12 @@ let function_declarations_of_flambda flambda =
 let function_declaration_to_flambda (fun_decl : function_declaration) =
   let params         = fun_decl.params in
   let body           = fun_decl.body in
-  let stub           = fun_decl.stub in
-  let dbg            = fun_decl.dbg in
-  let inline         = fun_decl.inline in
-  let specialise     = fun_decl.specialise in
-  let is_a_functor   = fun_decl.is_a_functor in
+  (* CR fquah: Some fields here and made up *)
+  let inline         = Lambda.Always_inline in
+  let specialise     = Lambda.Always_specialise in
+  let stub           = false in
+  let dbg            = Debuginfo.none in
+  let is_a_functor   = false in
   Flambda.create_function_declaration
     ~params ~body ~stub ~dbg ~inline ~specialise ~is_a_functor
 
