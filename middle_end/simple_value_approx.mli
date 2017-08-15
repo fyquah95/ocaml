@@ -150,8 +150,15 @@ and function_declarations = {
 }
 
 and function_declaration = {
+  free_variables : Variable.Set.t;
+  free_symbols : Symbol.Set.t;
   params : Parameter.t list;
   body : Flambda.t;
+  stub : bool;
+  dbg : Debuginfo.t;
+  inline : Lambda.inline_attribute;
+  specialise : Lambda.specialise_attribute;
+  is_a_functor : bool;
 }
 
 (* CR-soon mshinwell: add support for the approximations of the results, so we
@@ -440,9 +447,3 @@ val potentially_taken_block_switch_branch : t -> int -> switch_branch_selection
 
 val function_declarations_of_flambda
   : Flambda.function_declarations -> function_declarations
-
-val function_declarations_to_flambda
-  : function_declarations -> Flambda.function_declarations
-
-val function_declaration_to_flambda
-  : function_declaration -> Flambda.function_declaration

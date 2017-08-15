@@ -57,7 +57,20 @@ let which_function_parameters_can_we_specialise ~params ~args
     user-specified function as an [Flambda.named] value that projects the
     variable from its closure. *)
 let fold_over_projections_of_vars_bound_by_closure ~closure_id_being_applied
-      ~lhs_of_application ~function_decls ~init ~f =
+      ~lhs_of_application
+      ~(function_decls : Flambda.function_declarations)
+      ~init ~f =
+  let bound_variables =
+    let func =
+      Variable.Map.find (Closure_id.unwrap closure_id_being_applied)
+        function_decls.funs
+    in
+    let params = Parameter.Set.vars func.params in
+    let functions = Variable.Map.keys function_decls.funs in
+    Variable.Set.diff
+      (Variable.Set.diff func.free_variables params)
+      functions
+  in
   Variable.Set.fold (fun var acc ->
       let expr : Flambda.named =
         Project_var {
@@ -67,8 +80,7 @@ let fold_over_projections_of_vars_bound_by_closure ~closure_id_being_applied
         }
       in
       f ~acc ~var ~expr)
-    (Flambda_utils.variables_bound_by_the_closure closure_id_being_applied
-      function_decls)
+    bound_variables
     init
 
 let set_inline_attribute_on_all_apply body inline specialise =

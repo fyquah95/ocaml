@@ -73,8 +73,15 @@ and function_declarations = {
 }
 
 and function_declaration = {
+  free_variables : Variable.Set.t;
+  free_symbols : Symbol.Set.t;
   params : Parameter.t list;
   body : Flambda.t;
+  stub : bool;
+  dbg : Debuginfo.t;
+  inline : Lambda.inline_attribute;
+  specialise : Lambda.specialise_attribute;
+  is_a_functor : bool;
 }
 
 and value_set_of_closures = {
@@ -883,24 +890,14 @@ let function_declarations_of_flambda flambda =
       (fun (fun_decl : Flambda.function_declaration) ->
          { params         = fun_decl.params
          ; body           = fun_decl.body
+         ; stub           = fun_decl.stub
+         ; dbg            = fun_decl.dbg
+         ; inline         = fun_decl.inline
+         ; specialise     = fun_decl.specialise
+         ; is_a_functor   = fun_decl.is_a_functor
+         ; free_variables = fun_decl.free_variables
+         ; free_symbols   = fun_decl.free_symbols
          })
       funs
   in
   { set_of_closures_id ; set_of_closures_origin ; funs }
-
-let function_declaration_to_flambda (fun_decl : function_declaration) =
-  let params         = fun_decl.params in
-  let body           = fun_decl.body in
-  (* CR fquah: Some fields here and made up *)
-  let inline         = Lambda.Always_inline in
-  let specialise     = Lambda.Always_specialise in
-  let stub           = false in
-  let dbg            = Debuginfo.none in
-  let is_a_functor   = false in
-  Flambda.create_function_declaration
-    ~params ~body ~stub ~dbg ~inline ~specialise ~is_a_functor
-
-let function_declarations_to_flambda (fun_decls : function_declarations) =
-  let { funs ; _ } = fun_decls in
-  let funs = Variable.Map.map  function_declaration_to_flambda funs in
-  Flambda.create_function_declarations ~funs

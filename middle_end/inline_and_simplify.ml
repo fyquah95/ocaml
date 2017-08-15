@@ -777,16 +777,6 @@ and simplify_full_application env r ~function_decls ~lhs_of_application
       ~closure_id_being_applied ~function_decl ~value_set_of_closures ~args
       ~args_approxs ~dbg ~inline_requested ~specialise_requested =
 
-  (* CR fquah: We ought to do some kind of pattern match here. If it is
-     known to be a function that's not going to be inlined (hence, the body
-     will be missing), then we would not call [for_call_site] at all.
-
-     It is not a mistake (I think) that [Inlining_decision.for_call_site]
-     takes a [Flambda.function_declaration(s)] rather than one from
-     [Simple_value_approx]
-  *)
-  let function_decl = A.function_declaration_to_flambda function_decl in
-  let function_decls = A.function_declarations_to_flambda function_decls in
   Inlining_decision.for_call_site ~env ~r ~function_decls
     ~lhs_of_application ~closure_id_being_applied ~function_decl
     ~value_set_of_closures ~args ~args_approxs ~dbg ~simplify

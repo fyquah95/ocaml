@@ -489,9 +489,9 @@ let specialise env r ~lhs_of_application
         Original decision
     end
 
-let for_call_site ~env ~r ~(function_decls : Flambda.function_declarations)
+let for_call_site ~env ~r ~(function_decls : A.function_declarations)
       ~lhs_of_application ~closure_id_being_applied
-      ~(function_decl : Flambda.function_declaration)
+      ~(function_decl : A.function_declaration)
       ~(value_set_of_closures : Simple_value_approx.value_set_of_closures)
       ~args ~args_approxs ~dbg ~simplify ~inline_requested
       ~specialise_requested =
