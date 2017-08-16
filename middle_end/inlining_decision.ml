@@ -528,9 +528,6 @@ let for_call_site ~env ~r ~(function_decls : A.function_declarations)
   in
   if function_decl.stub then
     let body, r =
-      (* CR fquah: [function_decls] here should be of a different type
-         perhaps?
-      *)
       Inlining_transforms.inline_by_copying_function_body ~env
         ~r ~function_decls ~lhs_of_application
         ~closure_id_being_applied ~specialise_requested ~inline_requested
@@ -601,10 +598,6 @@ let for_call_site ~env ~r ~(function_decls : A.function_declarations)
           then raise Not_found
           else var
         in
-        (* CR fquah: [function_decls] here has to be a Flambda.t, which has
-           a body. This means we ought to convert [function_decls] at an
-           earlier point.
-        *)
         let to_flambda_function_decl
               (func_decl : A.function_declaration) =
           let params = func_decl.params in
@@ -630,6 +623,14 @@ let for_call_site ~env ~r ~(function_decls : A.function_declarations)
                   flambda_function_decls
                   ~backend:(E.backend env))))
         in
+        (* CR fquah: [specialise] and [inline] take different types due
+           to [Inlining_transform.inline_by_copying_function_body] and
+           [Inlining_transform.inline_by_copying_function_declaration]
+           having using different input types.
+
+           I am unsure having [to_flambda_function_decl] below is a correct
+           thing to do.
+        *)
         let specialise_result =
           specialise env r
             ~function_decls:flambda_function_decls

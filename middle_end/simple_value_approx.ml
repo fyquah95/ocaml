@@ -263,9 +263,11 @@ let create_value_set_of_closures
       Variable.Map.map (fun (function_decl : function_declaration) ->
           let params = Parameter.Set.vars function_decl.params in
           let free_vars =
-            (* CR fquah: The empty set below used to be [function_decl.free_variables] *)
+            (* CR fquah: Assuming [function_decl.free_variables]  is an
+               [Variable.Set.t option], what should the below be?
+            *)
             Variable.Set.diff
-              (Variable.Set.diff Variable.Set.empty params)
+              (Variable.Set.diff function_decl.free_variables params)
               functions
           in
           let num_free_vars = Variable.Set.cardinal free_vars in
