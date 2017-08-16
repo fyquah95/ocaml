@@ -41,11 +41,12 @@ val for_call_site
    [Simple_value_approx.function_decl] or [Flambda.function_decl].
    On one hand, it is only used in [inline_and_simplify.ml] where
    [function_decl] is definitely a Flambda one (due to calling it in
-   simplify_set_of_closures).
+   simplify_set_of_closures). On another hand, it looks like this functions
+   in this file are operating on
+   [Simple_approx_value.functioin_declaration(s)].
 
-   On another, it looks like this functions in this file are operating on
-   [Simple_approx_value.functioin_declaration(s)]. I think this function
-   should really be in this file in the first place.
+   I think this function should really not be in this file in the first
+   place.
 *)
 (** When a function declaration is encountered by [for_call_site], the body
     may be subject to inlining immediately, thus changing the declaration.
