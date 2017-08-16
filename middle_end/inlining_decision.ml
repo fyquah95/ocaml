@@ -137,7 +137,9 @@ let inline env r ~lhs_of_application
       match size_from_approximation with
       | Some body_size ->
         let wsb =
-          (* When the size is [Some ...], the size is okay *)
+          (* When the size is [Some _], the body definitely exists as the
+             approximation is in normal mode.
+          *)
           let function_body =
             Simple_value_approx.get_function_body_exn function_decl
           in

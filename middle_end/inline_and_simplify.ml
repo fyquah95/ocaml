@@ -388,6 +388,39 @@ let simplify_move_within_set_of_closures env r
                 let approx = A.value_closure value_set_of_closures move_to in
                 Move_within_set_of_closures move_within, ret r approx)
 
+let create_value_set_of_closures_with_env ~env
+      ~(function_decls : Flambda.function_declarations) ~bound_vars
+      ~invariant_params ~specialised_args ~freshening
+      ~direct_call_surrogates =
+  let should_use_classic_mode
+        (function_decl : Flambda.function_declaration) =
+    match function_decl.inline with
+    | Default_inline ->
+      if !Clflags.classic_inlining && not function_decl.stub then
+        (* In classic-inlining mode, the inlining decision is taken at
+           definition site (here). If the function is small enough
+           (below the -inline threshold) it will always be inlined. *)
+        let inlining_threshold =
+          Inline_and_simplify_aux.initial_inlining_threshold
+            ~round:(E.round env)
+        in
+        not (Inlining_cost.can_inline function_decl.body inlining_threshold ~bonus:0)
+      else begin false end
+    | _ -> false
+  in
+  let should_use_classic =
+    Variable.Map.exists
+      (fun _key func_decl -> should_use_classic_mode func_decl)
+      function_decls.funs
+  in
+  let create =
+    if should_use_classic
+    then A.create_classic_value_set_of_closures
+    else A.create_normal_value_set_of_closures
+  in
+  create ~function_decls ~bound_vars ~invariant_params ~specialised_args
+    ~freshening ~direct_call_surrogates
+
 (* Transform an expression denoting an access to a variable bound in
    a closure.  Variables in the closure ([project_var.closure]) may
    have been freshened since [expr] was constructed; as such, we
@@ -435,40 +468,6 @@ let simplify_move_within_set_of_closures env r
    other transformation must avoid transforming the information flow in
    a way that the inline function can't propagate it.
 *)
-
-let create_value_set_of_closures_with_env ~env
-      ~(function_decls : Flambda.function_declarations) ~bound_vars
-      ~invariant_params ~specialised_args ~freshening
-      ~direct_call_surrogates =
-  let should_use_classic_mode
-        (function_decl : Flambda.function_declaration) =
-    match function_decl.inline with
-    | Default_inline ->
-      if !Clflags.classic_inlining && not function_decl.stub then
-        (* In classic-inlining mode, the inlining decision is taken at
-           definition site (here). If the function is small enough
-           (below the -inline threshold) it will always be inlined. *)
-        let inlining_threshold =
-          Inline_and_simplify_aux.initial_inlining_threshold
-            ~round:(E.round env)
-        in
-        not (Inlining_cost.can_inline function_decl.body inlining_threshold ~bonus:0)
-      else begin false end
-    | _ -> false
-  in
-  let should_use_classic =
-    Variable.Map.exists
-      (fun _key func_decl -> should_use_classic_mode func_decl)
-      function_decls.funs
-  in
-  let create =
-    if should_use_classic
-    then A.create_classic_value_set_of_closures
-    else A.create_normal_value_set_of_closures
-  in
-  create ~function_decls ~bound_vars ~invariant_params ~specialised_args
-    ~freshening ~direct_call_surrogates
-
 let rec simplify_project_var env r ~(project_var : Flambda.project_var)
       : Flambda.named * R.t =
   simplify_free_variable_named env project_var.closure
@@ -808,7 +807,6 @@ and simplify_apply env r ~(apply : Flambda.apply) : Flambda.t * R.t =
 and simplify_full_application env r ~function_decls ~lhs_of_application
       ~closure_id_being_applied ~function_decl ~value_set_of_closures ~args
       ~args_approxs ~dbg ~inline_requested ~specialise_requested =
-
   Inlining_decision.for_call_site ~env ~r ~function_decls
     ~lhs_of_application ~closure_id_being_applied ~function_decl
     ~value_set_of_closures ~args ~args_approxs ~dbg ~simplify
@@ -1493,8 +1491,7 @@ let constant_defining_value_approx
         ~backend:(E.backend env))
     in
     let value_set_of_closures =
-      A.create_normal_value_set_of_closures
-        ~function_decls
+      A.create_normal_value_set_of_closures ~function_decls
         ~bound_vars:Var_within_closure.Map.empty
         ~invariant_params
         ~specialised_args:Variable.Map.empty

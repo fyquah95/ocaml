@@ -82,7 +82,6 @@ val apply_static_exception : t -> Static_exception.t -> Static_exception.t
 
     If the renaming is inactive, this is the identity.
 *)
-
 val rewrite_recursive_calls_with_symbols
    : t
   -> Flambda.function_declarations
