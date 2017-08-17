@@ -128,13 +128,12 @@ static int caml_page_table_resize(void)
   uintnat * new_entries;
   uintnat i, h;
 
-  caml_gc_message (0x08, "Growing page table to %"
-                   ARCH_INTNAT_PRINTF_FORMAT "u entries\n",
+  caml_gc_message (0x08, "Growing page table to %lu entries\n",
                    caml_page_table.size);
 
   new_entries = caml_stat_calloc_noexc(2 * old.size, sizeof(uintnat));
   if (new_entries == NULL) {
-    caml_gc_message (0x08, "No room for growing page table\n");
+    caml_gc_message (0x08, "No room for growing page table\n", 0);
     return -1;
   }
 
@@ -332,8 +331,7 @@ int caml_add_to_heap (char *m)
   /* Should check the contents of the block. */
 #endif /* DEBUG */
 
-  caml_gc_message (0x04, "Growing heap to %"
-                   ARCH_INTNAT_PRINTF_FORMAT "uk bytes\n",
+  caml_gc_message (0x04, "Growing heap to %luk bytes\n",
                    (Bsize_wsize (caml_stat_heap_wsz) + Chunk_size (m)) / 1024);
 
   /* Register block in page table */
@@ -383,7 +381,7 @@ static value *expand_heap (mlsize_t request)
   malloc_request = caml_clip_heap_chunk_wsz (over_request);
   mem = (value *) caml_alloc_for_heap (Bsize_wsize (malloc_request));
   if (mem == NULL){
-    caml_gc_message (0x04, "No room for growing heap\n");
+    caml_gc_message (0x04, "No room for growing heap\n", 0);
     return NULL;
   }
   remain = Wsize_bsize (Chunk_size (mem));
@@ -437,9 +435,8 @@ void caml_shrink_heap (char *chunk)
   if (chunk == caml_heap_start) return;
 
   caml_stat_heap_wsz -= Wsize_bsize (Chunk_size (chunk));
-  caml_gc_message (0x04, "Shrinking heap to %"
-                   ARCH_INTNAT_PRINTF_FORMAT "uk words\n",
-                   caml_stat_heap_wsz / 1024);
+  caml_gc_message (0x04, "Shrinking heap to %luk words\n",
+                   (unsigned long) caml_stat_heap_wsz / 1024);
 
 #ifdef DEBUG
   {
