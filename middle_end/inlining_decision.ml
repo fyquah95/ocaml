@@ -537,7 +537,8 @@ let for_call_site ~env ~r ~(function_decls : A.function_declarations)
   let original_r =
     R.set_approx (R.seen_direct_application r) (A.value_unknown Other)
   in
-  if function_decl.stub then
+  if function_decl.stub then begin
+    (* Format.printf "%a" A.print_function_declarations function_decls;*)
     let body, r =
       Inlining_transforms.inline_by_copying_function_body ~env
         ~r ~function_decls ~lhs_of_application
@@ -545,6 +546,7 @@ let for_call_site ~env ~r ~(function_decls : A.function_declarations)
         ~function_decl ~args ~dbg ~simplify
     in
     simplify env r body
+  end
   else if E.never_inline env then
     (* This case only occurs when examining the body of a stub function
        but not in the context of inlining said function.  As such, there

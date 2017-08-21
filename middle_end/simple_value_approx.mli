@@ -171,10 +171,11 @@ and function_declaration = private {
 (* The invariance here is when [classic_mode] is true, then
    [invariant_params] and [size] are guranteed to be empty maps and all the
    functions in [function_declarations.fun] will have None for its
-   [function_body] field.
+   [function_body] field. When [classic_mode] is false, all entries in
+   [function_decls] will contain a [Some] variant of [function_body].
 *)
 and value_set_of_closures = private {
-  with_empty_body: bool;
+  is_classic_mode: bool;
   function_decls : function_declarations;
   bound_vars : t Var_within_closure.Map.t;
   invariant_params : Variable.Set.t Variable.Map.t lazy_t;
@@ -209,13 +210,15 @@ val print_value_set_of_closures
   -> unit
 
 val create_classic_function_declarations
-   : Flambda.function_declarations -> function_declarations
+   : keep_body_check:(Flambda.function_declaration -> bool)
+  -> Flambda.function_declarations -> function_declarations
 
 val create_normal_function_declarations
    : Flambda.function_declarations -> function_declarations
 
 val create_classic_value_set_of_closures
-   : function_decls:Flambda.function_declarations
+   : keep_body_check:(Flambda.function_declaration -> bool)
+  -> function_decls:Flambda.function_declarations
   -> bound_vars:t Var_within_closure.Map.t
   -> invariant_params:Variable.Set.t Variable.Map.t lazy_t
   -> specialised_args:Flambda.specialised_to Variable.Map.t
@@ -233,7 +236,8 @@ val create_normal_value_set_of_closures
   -> value_set_of_closures
 
 val import_value_set_of_closures
-    : function_decls: function_declarations
+    : is_classic_mode: bool
+   -> function_decls: function_declarations
    -> bound_vars: t Var_within_closure.Map.t
    -> invariant_params: Variable.Set.t Variable.Map.t lazy_t
    -> specialised_args: Flambda.specialised_to Variable.Map.t
