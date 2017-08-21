@@ -653,13 +653,32 @@ let for_call_site ~env ~r ~(function_decls : A.function_declarations)
               (S.Not_specialised.Classic_mode, S.Not_inlined.Classic_mode))
         | Some _ ->
           let specialise_result =
-            specialise env r
-              ~function_decls:(Lazy.force flambda_function_decls)
-              ~function_decl:(Lazy.force flambda_function_decl)
-              ~lhs_of_application  ~recursive ~closure_id_being_applied
-              ~value_set_of_closures
-              ~args ~args_approxs ~dbg ~simplify ~original ~inline_requested
-              ~specialise_requested ~fun_cost ~self_call ~inlining_threshold
+            (* [specialize] is valid if and only if all entries of
+               [function_declaration] contains a body.
+            *)
+            (* CR fquah: Maybe this implies that [.is_classic_mode] should
+               really be a field in [function_declarations] rather than
+               [value_set_of_closures] ?
+            *)
+            let all_has_body =
+              Variable.Map.for_all
+                (fun (_ : Variable.t) (function_decl : A.function_declaration) ->
+                   match function_decl.function_body with
+                   | None -> false
+                   | Some _ -> true)
+                function_decls.funs
+            in
+            if all_has_body
+            then
+              specialise env r
+                ~function_decls:(Lazy.force flambda_function_decls)
+                ~function_decl:(Lazy.force flambda_function_decl)
+                ~lhs_of_application  ~recursive ~closure_id_being_applied
+                ~value_set_of_closures
+                ~args ~args_approxs ~dbg ~simplify ~original ~inline_requested
+                ~specialise_requested ~fun_cost ~self_call ~inlining_threshold
+            else
+              Original S.Not_specialised.Classic_mode
           in
           match specialise_result with
           | Changed (res, spec_reason) ->

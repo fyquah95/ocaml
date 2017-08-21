@@ -731,4 +731,3 @@ let create_value_set_of_closures
   in
   create ~function_decls ~bound_vars ~invariant_params ~specialised_args
     ~freshening ~direct_call_surrogates
-

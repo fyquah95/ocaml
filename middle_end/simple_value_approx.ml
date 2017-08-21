@@ -342,14 +342,8 @@ let create_classic_value_set_of_closures ~keep_body_check
       ~(function_decls : Flambda.function_declarations) ~bound_vars
       ~invariant_params ~specialised_args ~freshening
       ~direct_call_surrogates =
-  (*
   let function_decls =
     create_classic_function_declarations ~keep_body_check function_decls
-     in
-  *)
-  let _ = keep_body_check in
-  let function_decls =
-    create_normal_function_declarations function_decls
   in
   let size =
     lazy (
