@@ -553,6 +553,10 @@ let for_call_site ~env ~r ~(function_decls : A.function_declarations)
        is nothing to do here (and no decision to report). *)
     original, original_r
   else if value_set_of_closures.is_classic_mode then begin
+    let env =
+      E.note_entering_call env
+        ~closure_id:closure_id_being_applied ~dbg:dbg
+    in
     let simpl =
       match function_decl.function_body with
       | None -> Original S.Not_inlined.Classic_mode
