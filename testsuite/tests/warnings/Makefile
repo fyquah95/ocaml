@@ -40,7 +40,6 @@ run-all:
 	  printf " ... testing '$$file' with ocamlopt:"; \
 	  if $(BYTECODE_ONLY); then echo " => skipped"; else \
 	    F="`basename $$file .ml`"; \
-	    echo $(OCAMLOPT) $(FLAGS) -c $$file 2>$$F.$(BACKEND).opt_result; \
 	    $(OCAMLOPT) $(FLAGS) -c $$file 2>$$F.$(BACKEND).opt_result; \
 	    $(DIFF) $$F.$(BACKEND).opt_reference $$F.$(BACKEND).opt_result \
 	            >/dev/null \
