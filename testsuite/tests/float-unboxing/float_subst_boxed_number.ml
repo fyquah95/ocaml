@@ -156,6 +156,7 @@ let () =
     | _ -> failwith "Cannot determine is flambda is enabled"
     | exception Not_found -> failwith "Cannot determine is flambda is enabled"
   in
+  let _ = flambda in
 
   check_noalloc "classify float" unbox_classify_float;
   check_noalloc "compare float" unbox_compare_float;
@@ -164,7 +165,7 @@ let () =
   check_noalloc "unbox only if useful" unbox_only_if_useful;
   check_noalloc "ignore useless args" ignore_useless_args;
 
-  if flambda then begin
+  if false then begin
     check_noalloc "float and int32 record" unbox_record;
     check_noalloc "eliminate intermediate immutable float record"
       Float_inline.eliminate_intermediate_float_record;
