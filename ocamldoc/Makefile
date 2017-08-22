@@ -110,6 +110,7 @@ INCLUDES_NODEP=\
   -I $(ROOTDIR)/otherlibs/str \
   -I $(ROOTDIR)/otherlibs/dynlink \
   -I $(ROOTDIR)/otherlibs/$(UNIXLIB) \
+  -I $(ROOTDIR)/otherlibs/num \
   -I $(ROOTDIR)/otherlibs/$(GRAPHLIB)
 
 INCLUDES=$(INCLUDES_DEP) $(INCLUDES_NODEP)
@@ -184,7 +185,8 @@ STDLIB_MLIS=\
   ../parsing/*.mli \
   ../otherlibs/$(UNIXLIB)/unix.mli \
   ../otherlibs/str/str.mli \
-  ../otherlibs/bigarray/bigarray.mli
+  ../otherlibs/bigarray/bigarray.mli \
+  ../otherlibs/num/num.mli
 
 .PHONY: all
 all: lib exe generators manpages
