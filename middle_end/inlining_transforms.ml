@@ -392,33 +392,42 @@ let inline_by_copying_function_declaration ~env ~r
             if Variable.Set.mem param all_functions_parameters then
               match Variable.Map.find spec_to.var specialisable_renaming with
               | exception Not_found ->
-                Misc.fatal_errorf
-                  "Missing renaming for specialised argument of a function \
-                    being duplicated but not directly applied: %a -> %a.@ \
-                    Closure ID being applied = %a.@ \
-                    required_functions = %a.@ \
-                    specialisable_renaming = %a@ \
-                    specialisable_args_with_aliases = %a@ \
-                    Original function declarations = %a@ \
-                    Filtered function declarations = %a@ \
-                    Original specialised args = %a@ \
-                    value_set_of_closures.bound_vars = %a@ \
-                   "
-                  Variable.print param
-                  Flambda.print_specialised_to spec_to
-                  Closure_id.print closure_id_being_applied
-                  Variable.Set.print required_functions
-                  (Variable.Map.print Flambda.print_specialised_to)
+                begin match
+                  Variable.Map.find spec_to.var value_set_of_closures.free_vars
+                with
+                | exception Not_found ->
+                  Misc.fatal_errorf
+                    "Missing renaming for specialised argument of a function \
+                     being duplicated but not directly applied: %a -> %a.@ \
+                     Closure ID being applied = %a.@ \
+                     required_functions = %a.@ \
+                     specialisable_renaming = %a@ \
+                     specialisable_args_with_aliases = %a@ \
+                     Original function declarations = %a@ \
+                     Filtered function declarations = %a@ \
+                     Original specialised args = %a@ \
+                     value_set_of_closures.bound_vars = %a@ \
+                     value_set_of_closures.free_vars = %a@ \
+                    "
+                    Variable.print param
+                    Flambda.print_specialised_to spec_to
+                    Closure_id.print closure_id_being_applied
+                    Variable.Set.print required_functions
+                    (Variable.Map.print Flambda.print_specialised_to)
                     specialisable_renaming
-                  (Variable.Map.print Variable.print)
+                    (Variable.Map.print Variable.print)
                     specialisable_args_with_aliases
-                  Flambda.print_function_declarations original_function_decls
-                  Flambda.print_function_declarations function_decls
-                  (Variable.Map.print Flambda.print_specialised_to)
+                    Flambda.print_function_declarations original_function_decls
+                    Flambda.print_function_declarations function_decls
+                    (Variable.Map.print Flambda.print_specialised_to)
                     specialised_args
-                  (Var_within_closure.Map.print Simple_value_approx.print)
+                    (Var_within_closure.Map.print Simple_value_approx.print)
                     value_set_of_closures.bound_vars
-
+                    (Variable.Map.print Flambda.print_specialised_to)
+                    value_set_of_closures.free_vars
+                | (argument_from_the_current_application : Flambda.specialised_to) ->
+                  Some argument_from_the_current_application
+                end
               | argument_from_the_current_application ->
                 Some argument_from_the_current_application
             else
