@@ -216,6 +216,7 @@ let inline_by_copying_function_declaration ~env ~r
     ~args ~args_approxs
     ~(invariant_params:Variable.Set.t Variable.Map.t lazy_t)
     ~(specialised_args : Flambda.specialised_to Variable.Map.t)
+    ~(value_set_of_closures : Simple_value_approx.value_set_of_closures)
     ~direct_call_surrogates ~dbg ~simplify =
   let function_decls =
     (* To simplify a substitution (see comment below), rewrite any references
@@ -400,7 +401,9 @@ let inline_by_copying_function_declaration ~env ~r
                     specialisable_args_with_aliases = %a@ \
                     Original function declarations = %a@ \
                     Filtered function declarations = %a@ \
-                    Original specialised args = %a"
+                    Original specialised args = %a@ \
+                    value_set_of_closures.bound_vars = %a@ \
+                   "
                   Variable.print param
                   Flambda.print_specialised_to spec_to
                   Closure_id.print closure_id_being_applied
@@ -413,6 +416,9 @@ let inline_by_copying_function_declaration ~env ~r
                   Flambda.print_function_declarations function_decls
                   (Variable.Map.print Flambda.print_specialised_to)
                     specialised_args
+                  (Var_within_closure.Map.print Simple_value_approx.print)
+                    value_set_of_closures.bound_vars
+
               | argument_from_the_current_application ->
                 Some argument_from_the_current_application
             else
