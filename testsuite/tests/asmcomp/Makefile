@@ -97,8 +97,6 @@ one_ml:
 
 one_ml_flambda:
 	@if $(FLAMBDA); then \
-	   echo $(OCAMLOPT) $(ARGS_$(NAME)) -o $(NAME).exe $(NAME).ml && \
-	   ./$(NAME).exe && echo " => passed" || echo " => failed"; \
 	   $(OCAMLOPT) $(ARGS_$(NAME)) -o $(NAME).exe $(NAME).ml && \
 	   ./$(NAME).exe && echo " => passed" || echo " => failed"; \
 	 else \
