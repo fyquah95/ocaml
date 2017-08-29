@@ -1636,8 +1636,8 @@ let rec simplify_program_body env r (program : Flambda.program_body)
     let approx = E.find_symbol_fatal env root in
     if !Clflags.classic_inlining then begin
       populate_top_level_modules approx;
-      Format.eprintf "%a" A.print approx;
-      (* CR fquah: *)
+      (* CR fquah: Remove these comments. *)
+      (* Format.eprintf "%a" A.print approx; *)
       (* Format.eprintf "%a" E.print env *)
     end;
     End root, r

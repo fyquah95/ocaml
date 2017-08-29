@@ -411,11 +411,12 @@ let describe_constant_defining_value env export_id symbol
     Env.record_descr env export_id (Value_block (tag, Array.of_list approxs))
   | Set_of_closures set_of_closures ->
     let descr : Export_info.descr =
-      let drop_bodies =
+      (* At the export site, we explicitly check if classic_inlining is true *)
+      let keep_bodies =
         !Clflags.classic_inlining
         && Symbol.Set.mem symbol !Inline_and_simplify.allowed_symbols
       in
-      if drop_bodies then begin
+      if keep_bodies then begin
         set_of_closures_id_ref :=
           Set_of_closures_id.Set.add
             set_of_closures.function_decls.set_of_closures_id
@@ -428,11 +429,12 @@ let describe_constant_defining_value env export_id symbol
     in
     Env.record_descr env export_id descr
   | Project_closure (sym, closure_id) ->
-    let drop_bodies =
+    let keep_bodies =
+      (* At the export site, we explicitly check if classic_inlining is true *)
       !Clflags.classic_inlining
       && Symbol.Set.mem symbol !Inline_and_simplify.allowed_symbols
     in
-    if drop_bodies then begin
+    if keep_bodies then begin
       closure_id_ref := Closure_id.Set.add closure_id !closure_id_ref
     end;
     begin match Env.get_symbol_descr env sym with
@@ -535,14 +537,27 @@ let build_export_info ~(backend : (module Backend_intf.S))
     in
     (* CR fquah: Marshall might not be running correctly here ,,,. Think
        again properly... *)
+    let contains_stub (fun_decls : Simple_value_approx.function_declarations) =
+      Variable.Map.exists
+        (fun _ (fun_decl : Simple_value_approx.function_declaration) ->
+           fun_decl.stub)
+        fun_decls.funs
+    in
     let sets_of_closures =
       Flambda_utils.all_function_decls_indexed_by_set_of_closures_id program
       |> Set_of_closures_id.Map.map approx_func_decl
       |> Set_of_closures_id.Map.mapi (fun id fun_decls ->
-        if Set_of_closures_id.Set.mem id !set_of_closures_id_ref then begin
-          Simple_value_approx.clear_function_bodies fun_decls
-        end else begin
+        (* We cannot short circuit check if we are not in in -Oclassic as
+           there can be multiple rounds of inlining, which results in
+           stuff being recursively called.
+        *)
+        if (not !Clflags.classic_inlining
+            || contains_stub fun_decls
+            || Set_of_closures_id.Set.mem id !set_of_closures_id_ref)
+        then begin
           fun_decls
+        end else begin
+          Simple_value_approx.clear_function_bodies fun_decls
         end
       )
     in
@@ -550,10 +565,12 @@ let build_export_info ~(backend : (module Backend_intf.S))
       Flambda_utils.all_function_decls_indexed_by_closure_id program
       |> Closure_id.Map.map approx_func_decl
       |> Closure_id.Map.mapi (fun id fun_decls ->
-        if Closure_id.Set.mem id !closure_id_ref then begin
-          Simple_value_approx.clear_function_bodies fun_decls
-        end else begin
+        if (not !Clflags.classic_inlining
+            || contains_stub fun_decls
+            || Closure_id.Set.mem id !closure_id_ref) then begin
           fun_decls
+        end else begin
+          Simple_value_approx.clear_function_bodies fun_decls
         end
       )
     in
