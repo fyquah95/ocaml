@@ -264,6 +264,15 @@ let value_closure ?closure_var ?set_of_closures_var ?set_of_closures_symbol
     symbol = None;
   }
 
+let clear_function_bodies (function_decls : function_declarations) =
+  let funs =
+    Variable.Map.map (fun function_decl ->
+        { function_decl with function_body = None })
+      function_decls.funs
+  in
+  { function_decls with funs }
+
+
 let import_value_set_of_closures
       ~is_classic_mode ~(function_decls : function_declarations)
       ~bound_vars ~free_vars ~invariant_params ~specialised_args ~freshening

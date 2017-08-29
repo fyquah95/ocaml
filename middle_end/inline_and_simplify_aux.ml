@@ -88,10 +88,11 @@ module Env = struct
 
   let print ppf t =
     Format.fprintf ppf
-      "Environment maps: %a@.Projections: %a@.Freshening: %a@."
+      "Environment maps: %a@.Projections: %a@.Freshening: %a@.%a@"
       Variable.Set.print (Variable.Map.keys t.approx)
       (Projection.Map.print Variable.print) t.projections
       Freshening.print t.freshening
+      (Symbol.Map.print Simple_value_approx.print) t.approx_sym
 
   let mem t var = Variable.Map.mem var t.approx
 

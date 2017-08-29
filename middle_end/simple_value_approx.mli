@@ -168,12 +168,6 @@ and function_declaration = private {
 
 (* CR-soon mshinwell: add support for the approximations of the results, so we
    can do all of the tricky higher-order cases. *)
-(* The invariance here is when [classic_mode] is true, then
-   [invariant_params] and [size] are guranteed to be empty maps and all the
-   functions in [function_declarations.fun] will have None for its
-   [function_body] field. When [classic_mode] is false, all entries in
-   [function_decls] will contain a [Some] variant of [function_body].
-*)
 and value_set_of_closures = private {
   is_classic_mode: bool;
   function_decls : function_declarations;
@@ -237,6 +231,8 @@ val create_normal_value_set_of_closures
   -> freshening:Freshening.Project_var.t
   -> direct_call_surrogates:Closure_id.t Closure_id.Map.t
   -> value_set_of_closures
+
+val clear_function_bodies : function_declarations -> function_declarations
 
 val import_value_set_of_closures
     : is_classic_mode: bool

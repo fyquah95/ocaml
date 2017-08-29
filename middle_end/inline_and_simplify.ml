@@ -31,6 +31,8 @@ module R = Inline_and_simplify_aux.Result
     to always hold a particular constant.
 *)
 
+let allowed_symbols = ref Symbol.Set.empty
+
 let ret = R.set_approx
 
 type simplify_variable_result =
@@ -1545,6 +1547,7 @@ let simplify_constant_defining_value
             A.freshen_and_check_closure_id value_set_of_closures closure_id
           in
           A.value_closure value_set_of_closures closure_id
+            ~set_of_closures_symbol
         | Unresolved sym -> A.value_unresolved sym
         | Unknown -> A.value_unknown Other
         | Unknown_because_of_unresolved_value value ->
@@ -1559,6 +1562,37 @@ let simplify_constant_defining_value
   let approx = A.augment_with_symbol approx symbol in
   let r = ret r approx in
   r, constant_defining_value, approx
+
+let rec populate_top_level_modules (approx : Simple_value_approx.t) =
+  match approx.descr with
+  | Value_int _
+  | Value_char _
+  | Value_constptr _
+  | Value_float  _
+  | Value_string _
+  | Value_bottom
+  | Value_extern _
+  | Value_symbol _
+  | Value_unknown _
+  | Value_unresolved _
+  | Value_closure _ ->
+    ()
+  | Value_set_of_closures _ ->
+    begin match approx.symbol with
+    | Some (_, Some _)
+    | None -> ()
+    | Some (symbol, None) ->
+      allowed_symbols := Symbol.Set.add symbol !allowed_symbols
+    end;
+  | Value_block (_, arr) ->
+    Array.iter (fun t -> populate_top_level_modules t) arr
+  | Value_float_array f ->
+    begin match f.contents with
+    | Unknown_or_mutable -> ()
+    | Contents arr ->
+      Array.iter (fun t -> populate_top_level_modules t) arr
+    end
+  | _ -> ()
 
 let rec simplify_program_body env r (program : Flambda.program_body)
   : Flambda.program_body * R.t =
@@ -1598,7 +1632,15 @@ let rec simplify_program_body env r (program : Flambda.program_body)
     let expr, r = simplify env r expr in
     let program, r = simplify_program_body env r program in
     Effect (expr, program), r
-  | End root -> End root, r
+  | End root ->
+    let approx = E.find_symbol_fatal env root in
+    if !Clflags.classic_inlining then begin
+      populate_top_level_modules approx;
+      Format.eprintf "%a" A.print approx;
+      (* CR fquah: *)
+      (* Format.eprintf "%a" E.print env *)
+    end;
+    End root, r
 
 let simplify_program env r (program : Flambda.program) =
   let env, r =

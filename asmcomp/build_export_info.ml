@@ -200,6 +200,9 @@ let descr_of_allocated_constant (c : Allocated_const.t) : Export_info.descr =
       size = List.length fs;
     }
 
+let set_of_closures_id_ref = ref Set_of_closures_id.Set.empty
+let closure_id_ref = ref Closure_id.Set.empty
+
 let rec approx_of_expr (env : Env.t) (flam : Flambda.t) : Export_info.approx =
   match flam with
   | Var var -> Env.find_approx env var
@@ -328,7 +331,6 @@ and describe_set_of_closures env (set : Flambda.set_of_closures)
         Env.find_approx env spec_to.var)
       set.specialised_args
   in
-  (* CR fquah: Is this correct? *)
   let is_classic_mode = !Clflags.classic_inlining in
   let closures_approx =
     (* To build an approximation of the results, we need an
@@ -345,6 +347,9 @@ and describe_set_of_closures env (set : Flambda.set_of_closures)
       { Export_info.
         is_classic_mode;
         set_of_closures_id = set.function_decls.set_of_closures_id;
+        (* CR fquah: If [bound_vars] is not empty, we can replicate what
+           is done in closure
+        *)
         bound_vars = Var_within_closure.wrap_map bound_vars_approx;
         free_vars = set.free_vars;
         results =
@@ -406,6 +411,16 @@ let describe_constant_defining_value env export_id symbol
     Env.record_descr env export_id (Value_block (tag, Array.of_list approxs))
   | Set_of_closures set_of_closures ->
     let descr : Export_info.descr =
+      let drop_bodies =
+        !Clflags.classic_inlining
+        && Symbol.Set.mem symbol !Inline_and_simplify.allowed_symbols
+      in
+      if drop_bodies then begin
+        set_of_closures_id_ref :=
+          Set_of_closures_id.Set.add
+            set_of_closures.function_decls.set_of_closures_id
+            !set_of_closures_id_ref
+      end;
       Value_set_of_closures
         { (describe_set_of_closures env set_of_closures) with
           aliased_symbol = Some symbol;
@@ -413,6 +428,13 @@ let describe_constant_defining_value env export_id symbol
     in
     Env.record_descr env export_id descr
   | Project_closure (sym, closure_id) ->
+    let drop_bodies =
+      !Clflags.classic_inlining
+      && Symbol.Set.mem symbol !Inline_and_simplify.allowed_symbols
+    in
+    if drop_bodies then begin
+      closure_id_ref := Closure_id.Set.add closure_id !closure_id_ref
+    end;
     begin match Env.get_symbol_descr env sym with
     | Some (Value_set_of_closures set_of_closures) ->
       if not (Closure_id.Map.mem closure_id set_of_closures.results) then begin
@@ -511,13 +533,28 @@ let build_export_info ~(backend : (module Backend_intf.S))
     let approx_func_decl =
       Inline_and_simplify_aux.approximate_function_declarations
     in
+    (* CR fquah: Marshall might not be running correctly here ,,,. Think
+       again properly... *)
     let sets_of_closures =
       Flambda_utils.all_function_decls_indexed_by_set_of_closures_id program
       |> Set_of_closures_id.Map.map approx_func_decl
+      |> Set_of_closures_id.Map.mapi (fun id fun_decls ->
+        if Set_of_closures_id.Set.mem id !set_of_closures_id_ref then begin
+          Simple_value_approx.clear_function_bodies fun_decls
+        end else begin
+          fun_decls
+        end
+      )
     in
     let closures =
-      Flambda_utils.all_function_decls_indexed_by_closure_id program
-      |> Closure_id.Map.map approx_func_decl
+      let aux_fun function_decls fun_var _ map =
+        let closure_id = Closure_id.wrap fun_var in
+        Closure_id.Map.add closure_id function_decls map
+      in
+      let aux _ (function_decls : Simple_value_approx.function_declarations) map =
+        Variable.Map.fold (aux_fun function_decls) function_decls.funs map
+      in
+      Set_of_closures_id.Map.fold aux sets_of_closures Closure_id.Map.empty
     in
     let invariant_params =
       Set_of_closures_id.Map.map

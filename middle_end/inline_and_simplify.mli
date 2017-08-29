@@ -22,6 +22,8 @@
     Readers interested in the inlining strategy should read the
     [Inlining_decision] module first.
 *)
+
+val allowed_symbols : Symbol.Set.t ref
 val run
    : never_inline:bool
   -> backend:(module Backend_intf.S)
