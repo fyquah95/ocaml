@@ -517,7 +517,11 @@ let build_export_info ~(backend : (module Backend_intf.S))
             let flag =
               Inline_and_simplify_aux.keep_body_in_classic_mode fun_decl
             in
-            if flag then begin
+            (* If we are definitely not going to inline a function,
+               functions that are defined in its closures should never
+               be inlined.
+            *)
+            if not flag then begin
               Flambda_iterators.iter_named (fun named ->
                 match named with
                 | Set_of_closures set_of_closures ->
