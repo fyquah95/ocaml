@@ -543,10 +543,12 @@ let build_export_info ~(backend : (module Backend_intf.S))
            fun_decl.stub)
         fun_decls.funs
     in
-    let sets_of_closures =
+    let sets_of_closures_original =
       Flambda_utils.all_function_decls_indexed_by_set_of_closures_id program
       |> Set_of_closures_id.Map.map approx_func_decl
-      |> Set_of_closures_id.Map.mapi (fun id fun_decls ->
+    in
+    let sets_of_closures =
+      Set_of_closures_id.Map.mapi sets_of_closures_original (fun id fun_decls ->
         (* We cannot short circuit check if we are not in in -Oclassic as
            there can be multiple rounds of inlining, which results in
            stuff being recursively called.
@@ -562,17 +564,24 @@ let build_export_info ~(backend : (module Backend_intf.S))
       )
     in
     let closures =
-      Flambda_utils.all_function_decls_indexed_by_closure_id program
-      |> Closure_id.Map.map approx_func_decl
-      |> Closure_id.Map.mapi (fun id fun_decls ->
+      let aux_fun function_decls fun_var _ map =
+        let closure_id = Closure_id.wrap fun_var in
         if (not !Clflags.classic_inlining
             || contains_stub fun_decls
-            || Closure_id.Set.mem id !closure_id_ref) then begin
-          fun_decls
+            || Set_of_closures_id.Set.mem id !set_of_closures_id_ref)
+        then begin
+          Closure_id.Map.add closure_id function_decls map
         end else begin
-          Simple_value_approx.clear_function_bodies fun_decls
+          map
         end
-      )
+      in
+      let aux _ (function_decls : Simple_value_approx.function_declarations) map =
+        Variable.Map.fold (aux_fun function_decls) function_decls.funs map
+      in
+      Set_of_closures_id.Map.fold
+        aux
+        sets_of_closures_original
+        Closure_id.Map.empty
     in
     let invariant_params =
       Set_of_closures_id.Map.map
