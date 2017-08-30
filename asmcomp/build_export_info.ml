@@ -535,8 +535,6 @@ let build_export_info ~(backend : (module Backend_intf.S))
     let approx_func_decl =
       Inline_and_simplify_aux.approximate_function_declarations
     in
-    (* CR fquah: Marshall might not be running correctly here ,,,. Think
-       again properly... *)
     let contains_stub (fun_decls : Simple_value_approx.function_declarations) =
       Variable.Map.exists
         (fun _ (fun_decl : Simple_value_approx.function_declaration) ->
