@@ -548,39 +548,32 @@ let build_export_info ~(backend : (module Backend_intf.S))
       |> Set_of_closures_id.Map.map approx_func_decl
     in
     let sets_of_closures =
-      Set_of_closures_id.Map.mapi sets_of_closures_original (fun id fun_decls ->
-        (* We cannot short circuit check if we are not in in -Oclassic as
-           there can be multiple rounds of inlining, which results in
-           stuff being recursively called.
-        *)
-        if (not !Clflags.classic_inlining
-            || contains_stub fun_decls
-            || Set_of_closures_id.Set.mem id !set_of_closures_id_ref)
-        then begin
-          fun_decls
-        end else begin
-          Simple_value_approx.clear_function_bodies fun_decls
-        end
-      )
+      Set_of_closures_id.Map.mapi (fun id fun_decls ->
+          (* We cannot short circuit check if we are not in in -Oclassic as
+             there can be multiple rounds of inlining, which results in
+             stuff being recursively called.
+          *)
+          if (not !Clflags.classic_inlining
+              || contains_stub fun_decls
+              || Set_of_closures_id.Set.mem id !set_of_closures_id_ref)
+          then begin
+            fun_decls
+          end else begin
+            Simple_value_approx.clear_function_bodies fun_decls
+          end)
+        sets_of_closures_original
     in
     let closures =
       let aux_fun function_decls fun_var _ map =
         let closure_id = Closure_id.wrap fun_var in
-        if (not !Clflags.classic_inlining
-            || contains_stub fun_decls
-            || Set_of_closures_id.Set.mem id !set_of_closures_id_ref)
-        then begin
-          Closure_id.Map.add closure_id function_decls map
-        end else begin
-          map
-        end
+        Closure_id.Map.add closure_id function_decls map
       in
       let aux _ (function_decls : Simple_value_approx.function_declarations) map =
         Variable.Map.fold (aux_fun function_decls) function_decls.funs map
       in
       Set_of_closures_id.Map.fold
         aux
-        sets_of_closures_original
+        sets_of_closures
         Closure_id.Map.empty
     in
     let invariant_params =
