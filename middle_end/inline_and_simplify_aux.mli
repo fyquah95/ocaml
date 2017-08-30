@@ -362,6 +362,8 @@ val prepare_to_simplify_closure
   -> set_of_closures_env:Env.t
   -> Env.t
 
+val keep_body_in_classic_mode : Flambda.function_declaration -> bool
+
 val approximate_function_declarations
    : Flambda.function_declarations
   -> Simple_value_approx.function_declarations

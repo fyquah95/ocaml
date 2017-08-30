@@ -513,6 +513,8 @@ val update_function_decl_body
    -> (Flambda.t -> Flambda.t)
    -> function_declaration
 
+val clear_function_bodies : function_declarations -> function_declarations
+
 (** Like [make_closure_map], but takes a mapping from set of closures IDs to
     function declarations, instead of a [program]. *)
 val make_closure_map'

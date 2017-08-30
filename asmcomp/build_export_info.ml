@@ -508,12 +508,42 @@ let build_export_info ~(backend : (module Backend_intf.S))
     let _global_symbol, env =
       describe_program (Env.Global.create_empty ()) program
     in
-    let approx_func_decl =
-      Inline_and_simplify_aux.approximate_function_declarations
+    let seen_set_of_closure_ids = ref Set_of_closures_id.Set.empty in
+    let approx_func_decl function_decls =
+      if !Clflags.classic_inlining then begin
+        Simple_value_approx.create_classic_function_declarations
+          function_decls
+          ~keep_body_check:(fun (fun_decl : Flambda.function_declaration) ->
+            let flag =
+              Inline_and_simplify_aux.keep_body_in_classic_mode fun_decl
+            in
+            if flag then begin
+              Flambda_iterators.iter_named (fun named ->
+                match named with
+                | Set_of_closures set_of_closures ->
+                  seen_set_of_closure_ids :=
+                    Set_of_closures_id.Set.add
+                      set_of_closures.function_decls.set_of_closures_id
+                      !seen_set_of_closure_ids
+                | _ -> ())
+                fun_decl.body
+            end;
+            flag)
+      end else begin
+        (* Don't need to do anything smart if we are not in classic mode as
+           we will just write all the bodies for later stages of
+           optimizations. *)
+        Simple_value_approx.create_normal_function_declarations function_decls
+      end
     in
     let sets_of_closures =
       Flambda_utils.all_function_decls_indexed_by_set_of_closures_id program
       |> Set_of_closures_id.Map.map approx_func_decl
+      |> Set_of_closures_id.Map.mapi (fun key value ->
+        if Set_of_closures_id.Set.mem key !seen_set_of_closure_ids then
+          Simple_value_approx.clear_function_bodies value
+        else
+          value)
     in
     let closures =
       let aux_fun function_decls fun_var _ map =

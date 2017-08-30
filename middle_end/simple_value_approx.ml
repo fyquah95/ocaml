@@ -1116,3 +1116,10 @@ let make_closure_map' input =
   Set_of_closures_id.Map.iter add_set_of_closures input;
   !map
 
+let clear_function_bodies (fun_decls : function_declarations) =
+  let funs =
+    Variable.Map.map
+      (fun fun_decl -> { fun_decl with function_body = None })
+    fun_decls.funs
+  in
+  { fun_decls with funs }
