@@ -1119,7 +1119,15 @@ let make_closure_map' input =
 let clear_function_bodies (fun_decls : function_declarations) =
   let funs =
     Variable.Map.map
-      (fun fun_decl -> { fun_decl with function_body = None })
-    fun_decls.funs
+      (fun fun_decl ->
+         if fun_decl.stub then begin
+           match fun_decl.function_body with
+           | None -> assert false
+           | Some _ -> fun_decl
+         end
+         else begin
+           { fun_decl with function_body = None }
+         end)
+      fun_decls.funs
   in
   { fun_decls with funs }
