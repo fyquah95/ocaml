@@ -546,32 +546,23 @@ let build_export_info ~(backend : (module Backend_intf.S))
     let sets_of_closures =
       Flambda_utils.all_function_decls_indexed_by_set_of_closures_id program
       |> Set_of_closures_id.Map.map approx_func_decl
-      |> Set_of_closures_id.Map.mapi (fun id fun_decls ->
+      |> Set_of_closures_id.Map.filter (fun id fun_decls ->
         (* We cannot short circuit check if we are not in in -Oclassic as
            there can be multiple rounds of inlining, which results in
            stuff being recursively called.
         *)
-        if (not !Clflags.classic_inlining
-            || contains_stub fun_decls
-            || Set_of_closures_id.Set.mem id !set_of_closures_id_ref)
-        then begin
-          fun_decls
-        end else begin
-          Simple_value_approx.clear_function_bodies fun_decls
-        end
+        (not !Clflags.classic_inlining
+         || contains_stub fun_decls
+         || Set_of_closures_id.Set.mem id !set_of_closures_id_ref)
       )
     in
     let closures =
       Flambda_utils.all_function_decls_indexed_by_closure_id program
       |> Closure_id.Map.map approx_func_decl
-      |> Closure_id.Map.mapi (fun id fun_decls ->
-        if (not !Clflags.classic_inlining
-            || contains_stub fun_decls
-            || Closure_id.Set.mem id !closure_id_ref) then begin
-          fun_decls
-        end else begin
-          Simple_value_approx.clear_function_bodies fun_decls
-        end
+      |> Closure_id.Map.filter (fun id fun_decls ->
+        (not !Clflags.classic_inlining
+         || contains_stub fun_decls
+         || Closure_id.Set.mem id !closure_id_ref)
       )
     in
     let invariant_params =
