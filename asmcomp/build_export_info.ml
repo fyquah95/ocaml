@@ -547,6 +547,7 @@ let traverse_for_exported_symbols
       begin match Queue.pop queue with
       | Q_export_id export_id ->
         begin match Export_id.Map.find export_id values with
+        | exception Not_found -> ()
         | Value_block (_, approxes) ->
           Array.iter
             (function
@@ -570,7 +571,10 @@ let traverse_for_exported_symbols
         | _ -> ()
         end
       | Q_symbol symbol ->
-        conditionally_add_export_id (Symbol.Map.find symbol symbol_id)
+        begin match Symbol.Map.find symbol symbol_id with
+        | exception Not_found -> ()
+        | export_id -> conditionally_add_export_id export_id
+        end
       | Q_set_of_closures_id set_of_closures_id ->
         let function_declarations =
           Set_of_closures_id.Map.find set_of_closures_id sets_of_closures
@@ -670,7 +674,7 @@ let build_export_info ~(backend : (module Backend_intf.S))
         ~root_symbol:(Compilenv.current_unit_symbol ())
     in
     let sets_of_closures =
-      Set_of_closures_id.Map.map (fun key fun_decls ->
+      Set_of_closures_id.Map.mapi (fun key fun_decls ->
           if not !Clflags.classic_inlining ||
              Set_of_closures_id.Set.mem key relevant_set_of_closures then
             fun_decls
