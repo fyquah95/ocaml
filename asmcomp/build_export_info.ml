@@ -503,6 +503,7 @@ type queue_elem =
   | Q_export_id of Export_id.t
 
 let traverse_for_exported_symbols
+      ~(closure_id_to_set_of_closures_id : Set_of_closures_id.t Closure_id.Map.t)
       ~(sets_of_closures : A.function_declarations Set_of_closures_id.Map.t)
       ~(values : Export_info.descr Export_id.Map.t)
       ~(symbol_id : Export_id.t Symbol.Map.t)
@@ -540,6 +541,21 @@ let traverse_for_exported_symbols
       Queue.add (Q_export_id export_id) queue
     end
   in
+  let process_approx =
+    function
+    | Export_info.Value_id export_id ->
+      conditionally_add_export_id export_id
+    | Export_info.Value_symbol symbol ->
+      conditionally_add_symbol symbol
+    | Export_info.Value_unknown -> ()
+  in
+  let process_value_set_of_closures (soc : Export_info.value_set_of_closures) =
+    conditionally_add_set_of_closures_id soc.set_of_closures_id;
+    Var_within_closure.Map.iter
+      (fun _ value -> process_approx value) soc.bound_vars;
+    Closure_id.Map.iter
+      (fun _ value -> process_approx value) soc.results
+  in
   let rec loop () =
     if Queue.is_empty queue then
       ()
@@ -549,14 +565,7 @@ let traverse_for_exported_symbols
         begin match Export_id.Map.find export_id values with
         | exception Not_found -> ()
         | Value_block (_, approxes) ->
-          Array.iter
-            (function
-              | Export_info.Value_id export_id ->
-                conditionally_add_export_id export_id
-              | Export_info.Value_symbol symbol ->
-                conditionally_add_symbol symbol
-              | Export_info.Value_unknown -> ())
-            approxes
+          Array.iter process_approx approxes
         (* In the following two pattern matches, we should not traverse into
            [value_set_of_closures.Export_info.results]. We want that
            traversal decision to be decided by the pattern match with
@@ -564,10 +573,9 @@ let traverse_for_exported_symbols
            is decided based upon the body is inlined or not.
         *)
         | Value_closure value_closure ->
-          conditionally_add_set_of_closures_id
-            value_closure.set_of_closures.set_of_closures_id
+          process_value_set_of_closures value_closure.set_of_closures
         | Value_set_of_closures soc ->
-          conditionally_add_set_of_closures_id soc.set_of_closures_id
+          process_value_set_of_closures soc
         | _ -> ()
         end
       | Q_symbol symbol ->
@@ -585,7 +593,24 @@ let traverse_for_exported_symbols
             | None -> ()
             | Some function_body ->
               Flambda_iterators.iter_toplevel
-                (fun (_ : Flambda.t) -> ())
+                (fun (term : Flambda.t) ->
+                   match term with
+                   | Flambda.Apply { kind ; _ } ->
+                     begin match kind with
+                     | Indirect -> ()
+                     | Direct closure_id ->
+                       begin match
+                         Closure_id.Map.find
+                           closure_id
+                           closure_id_to_set_of_closures_id
+                       with
+                       | exception Not_found -> ()
+                       | set_of_closures_id ->
+                         conditionally_add_set_of_closures_id
+                           set_of_closures_id
+                       end
+                     end
+                   | _ -> ())
                 (fun (named : Flambda.named) ->
                    match named with
                    | Symbol symbol
@@ -657,7 +682,7 @@ let build_export_info ~(backend : (module Backend_intf.S))
             with
             | exception Not_found ->
               invariant_params
-            | (set:Variable.Set.t Variable.Map.t) ->
+            | (set : Variable.Set.t Variable.Map.t) ->
               Set_of_closures_id.Map.add set_of_closures_id set invariant_params
             end
           | _ ->
@@ -667,7 +692,21 @@ let build_export_info ~(backend : (module Backend_intf.S))
     let values = Export_info.nest_eid_map unnested_values in
     let symbol_id = Env.Global.symbol_to_export_id_map env in
     let relevant_set_of_closures, relevant_symbols, relevant_export_ids =
+      let closure_id_to_set_of_closures_id =
+        Set_of_closures_id.Map.fold
+          (fun set_of_closure_id
+            (function_declarations : Simple_value_approx.function_declarations) acc ->
+             Variable.Map.fold
+               (fun fun_var _ acc ->
+                  let closure_id = Closure_id.wrap fun_var in
+                  Closure_id.Map.add closure_id set_of_closure_id acc)
+               function_declarations.funs
+               acc)
+          sets_of_closures
+          Closure_id.Map.empty
+      in
       traverse_for_exported_symbols
+        ~closure_id_to_set_of_closures_id
         ~sets_of_closures
         ~values:(Compilation_unit.Map.find (Compilenv.current_unit ()) values)
         ~symbol_id
