@@ -143,7 +143,7 @@ static value heap_stats (int returnstats)
   header_t cur_hd;
 
 #ifdef DEBUG
-  caml_gc_message (-1, "### OCaml runtime: heap check ###\n");
+  caml_gc_message (-1, "### OCaml runtime: heap check ###\n", 0);
 #endif
 
   while (chunk != NULL){
@@ -415,35 +415,31 @@ CAMLprim value caml_gc_set(value v)
   newpf = norm_pfree (Long_val (Field (v, 2)));
   if (newpf != caml_percent_free){
     caml_percent_free = newpf;
-    caml_gc_message (0x20, "New space overhead: %"
-                     ARCH_INTNAT_PRINTF_FORMAT "u%%\n", caml_percent_free);
+    caml_gc_message (0x20, "New space overhead: %d%%\n", caml_percent_free);
   }
 
   newpm = norm_pmax (Long_val (Field (v, 4)));
   if (newpm != caml_percent_max){
     caml_percent_max = newpm;
-    caml_gc_message (0x20, "New max overhead: %"
-                     ARCH_INTNAT_PRINTF_FORMAT "u%%\n", caml_percent_max);
+    caml_gc_message (0x20, "New max overhead: %d%%\n", caml_percent_max);
   }
 
   newheapincr = Long_val (Field (v, 1));
   if (newheapincr != caml_major_heap_increment){
     caml_major_heap_increment = newheapincr;
     if (newheapincr > 1000){
-      caml_gc_message (0x20, "New heap increment size: %"
-                       ARCH_INTNAT_PRINTF_FORMAT "uk words\n",
+      caml_gc_message (0x20, "New heap increment size: %luk words\n",
                        caml_major_heap_increment/1024);
     }else{
-      caml_gc_message (0x20, "New heap increment size: %"
-                       ARCH_INTNAT_PRINTF_FORMAT "u%%\n",
+      caml_gc_message (0x20, "New heap increment size: %lu%%\n",
                        caml_major_heap_increment);
     }
   }
   oldpolicy = caml_allocation_policy;
   caml_set_allocation_policy (Long_val (Field (v, 6)));
   if (oldpolicy != caml_allocation_policy){
-    caml_gc_message (0x20, "New allocation policy: %"
-                     ARCH_INTNAT_PRINTF_FORMAT "u\n", caml_allocation_policy);
+    caml_gc_message (0x20, "New allocation policy: %d\n",
+                     caml_allocation_policy);
   }
 
   /* This field was added in 4.03.0. */
@@ -488,7 +484,7 @@ static void test_and_compact (void)
                           ARCH_INTNAT_PRINTF_FORMAT "u%%\n",
                    (uintnat) fp);
   if (fp >= caml_percent_max){
-    caml_gc_message (0x200, "Automatic compaction triggered.\n");
+    caml_gc_message (0x200, "Automatic compaction triggered.\n", 0);
     caml_compact_heap ();
   }
 }
@@ -497,7 +493,7 @@ CAMLprim value caml_gc_major(value v)
 {
   CAML_INSTR_SETUP (tmr, "");
   CAMLassert (v == Val_unit);
-  caml_gc_message (0x1, "Major GC cycle requested\n");
+  caml_gc_message (0x1, "Major GC cycle requested\n", 0);
   caml_empty_minor_heap ();
   caml_finish_major_cycle ();
   test_and_compact ();
@@ -510,7 +506,7 @@ CAMLprim value caml_gc_full_major(value v)
 {
   CAML_INSTR_SETUP (tmr, "");
   CAMLassert (v == Val_unit);
-  caml_gc_message (0x1, "Full major GC cycle requested\n");
+  caml_gc_message (0x1, "Full major GC cycle requested\n", 0);
   caml_empty_minor_heap ();
   caml_finish_major_cycle ();
   caml_final_do_calls ();
@@ -535,7 +531,7 @@ CAMLprim value caml_gc_compaction(value v)
 {
   CAML_INSTR_SETUP (tmr, "");
   CAMLassert (v == Val_unit);
-  caml_gc_message (0x10, "Heap compaction requested\n");
+  caml_gc_message (0x10, "Heap compaction requested\n", 0);
   caml_empty_minor_heap ();
   caml_finish_major_cycle ();
   caml_final_do_calls ();
@@ -605,24 +601,19 @@ void caml_init_gc (uintnat minor_size, uintnat major_size,
   caml_gc_message (0x20, "Initial minor heap size: %"
                    ARCH_SIZET_PRINTF_FORMAT "uk words\n",
                    caml_minor_heap_wsz / 1024);
-  caml_gc_message (0x20, "Initial major heap size: %"
-                   ARCH_INTNAT_PRINTF_FORMAT "uk bytes\n",
+  caml_gc_message (0x20, "Initial major heap size: %luk bytes\n",
                    major_heap_size / 1024);
-  caml_gc_message (0x20, "Initial space overhead: %"
-                   ARCH_INTNAT_PRINTF_FORMAT "u%%\n", caml_percent_free);
-  caml_gc_message (0x20, "Initial max overhead: %"
-                   ARCH_INTNAT_PRINTF_FORMAT "u%%\n", caml_percent_max);
+  caml_gc_message (0x20, "Initial space overhead: %lu%%\n", caml_percent_free);
+  caml_gc_message (0x20, "Initial max overhead: %lu%%\n", caml_percent_max);
   if (caml_major_heap_increment > 1000){
-    caml_gc_message (0x20, "Initial heap increment: %"
-                     ARCH_INTNAT_PRINTF_FORMAT "uk words\n",
+    caml_gc_message (0x20, "Initial heap increment: %luk words\n",
                      caml_major_heap_increment / 1024);
   }else{
-    caml_gc_message (0x20, "Initial heap increment: %"
-                     ARCH_INTNAT_PRINTF_FORMAT "u%%\n",
+    caml_gc_message (0x20, "Initial heap increment: %lu%%\n",
                      caml_major_heap_increment);
   }
-  caml_gc_message (0x20, "Initial allocation policy: %"
-                   ARCH_INTNAT_PRINTF_FORMAT "u\n", caml_allocation_policy);
+  caml_gc_message (0x20, "Initial allocation policy: %d\n",
+                   caml_allocation_policy);
   caml_gc_message (0x20, "Initial smoothing window: %d\n",
                    caml_major_window);
 }
@@ -658,7 +649,7 @@ CAMLprim value caml_runtime_parameters (value unit)
      /* H */ caml_use_huge_pages,
      /* i */ caml_major_heap_increment,
 #ifdef NATIVE_CODE
-     /* l */ (uintnat) 0,
+     /* l */ 0UL,
 #else
      /* l */ caml_max_stack_size,
 #endif
