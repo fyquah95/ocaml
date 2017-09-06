@@ -286,11 +286,7 @@ CAMLextern int caml_read_directory(char * dirname, struct ext_table * contents);
 /* GC flags and messages */
 
 extern uintnat caml_verb_gc;
-void caml_gc_message (int, char *, ...)
-#ifdef __GNUC__
-  __attribute__ ((format (printf, 2, 3)))
-#endif
-;
+void caml_gc_message (int, char *, uintnat);
 
 /* Runtime warnings */
 extern uintnat caml_runtime_warnings;
