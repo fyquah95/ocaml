@@ -708,7 +708,7 @@ let keep_body_in_classic_mode (fun_decl : Flambda.function_declaration) =
          [middle_end/closure_conversion.ml])
       *)
       let inlining_threshold = initial_inlining_threshold ~round:0 in
-      let bonus = Flambda_utils.function_arity fun_decl.params in
+      let bonus = Flambda_utils.function_arity fun_decl in
       Inlining_cost.can_inline fun_decl.body inlining_threshold ~bonus
     end else begin
       true
