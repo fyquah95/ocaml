@@ -705,20 +705,18 @@ let keep_body_in_classic_mode ~backend ~function_decls =
        in all cases, as it is a stub. (This is ensured by
        [middle_end/closure_conversion.ml]).
     *)
-    if not fun_decl.stub then begin
-      let inlining_threshold = initial_inlining_threshold ~round:0 in
-      let bonus = Flambda_utils.function_arity fun_decl in
-      Inlining_cost.can_inline fun_decl.body inlining_threshold ~bonus
-    end else begin
-      true
-    end
+    let inlining_threshold = initial_inlining_threshold ~round:0 in
+    let bonus = Flambda_utils.function_arity fun_decl in
+    Inlining_cost.can_inline fun_decl.body inlining_threshold ~bonus
   in
   let recursive_variables =
     Find_recursive_functions.in_function_declarations ~backend
       function_decls
   in
   fun (var : Variable.t) (fun_decl : Flambda.function_declaration) ->
-    if Variable.Set.mem var recursive_variables then begin
+    if fun_decl.stub then begin
+      true
+    end else if Variable.Set.mem var recursive_variables then begin
       false
     end else begin
       match fun_decl.inline with
