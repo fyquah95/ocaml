@@ -98,8 +98,6 @@ let inline env r ~lhs_of_application
       Try_it
     else if never_inline then
       Don't_try_it S.Not_inlined.Annotation
-    else if !Clflags.classic_inlining then
-      Don't_try_it S.Not_inlined.Classic_mode
     else if not (E.unrolling_allowed env function_decls.set_of_closures_origin)
          && (Lazy.force recursive) then
       Don't_try_it S.Not_inlined.Unrolling_depth_exceeded
@@ -371,7 +369,7 @@ let specialise env r ~lhs_of_application
        - is closed (it and all other members of the set of closures on which
          it depends); and
        - has useful approximations for some invariant parameters. *)
-    if !Clflags.classic_inlining then
+    if function_decls.is_classic_mode then
       Don't_try_it S.Not_specialised.Classic_mode
     else if self_call then
       Don't_try_it S.Not_specialised.Self_call
@@ -552,12 +550,7 @@ let for_call_site ~env ~r ~(function_decls : A.function_declarations)
        but not in the context of inlining said function.  As such, there
        is nothing to do here (and no decision to report). *)
     original, original_r
-  else if
-    (* It is possible to compile a dependent unit with -O3 and the current
-       unit is -Oclassic. In such cases, do not specialize.
-    *)
-    value_set_of_closures.is_classic_mode || !Clflags.classic_inlining
-  then begin
+  else if function_decls.is_classic_mode then begin
     let env =
       E.note_entering_call env
         ~closure_id:closure_id_being_applied ~dbg:dbg
@@ -719,6 +712,7 @@ let for_call_site ~env ~r ~(function_decls : A.function_declarations)
         in
         let flambda_function_decls =
           lazy (
+            let is_classic_mode = function_decls.is_classic_mode in
             let funs =
               Variable.Map.map to_flambda_function_decl
                 function_decls.funs
@@ -727,7 +721,7 @@ let for_call_site ~env ~r ~(function_decls : A.function_declarations)
               function_decls.set_of_closures_origin
             in
             Flambda.create_function_declarations_with_closures_origin
-              ~funs ~set_of_closures_origin)
+              ~is_classic_mode ~funs ~set_of_closures_origin)
         in
         let recursive =
           lazy
@@ -739,7 +733,7 @@ let for_call_site ~env ~r ~(function_decls : A.function_declarations)
         match function_decl.function_body with
         | None ->
           Misc.fatal_error
-            "value_set_of_closures.is_classic_mode is [false], but \
+            "function_declarations.is_classic_mode is [true], but \
              function_decl does not contain a body."
         | Some _ ->
           let specialise_result =
