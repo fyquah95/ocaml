@@ -78,7 +78,11 @@ let traverse
     Var_within_closure.Map.iter
       (fun _ value -> process_approx value) soc.bound_vars;
     Closure_id.Map.iter
-      (fun _ value -> process_approx value) soc.results
+      (fun _ value -> process_approx value) soc.results;
+    begin match soc.aliased_symbol with
+    | None -> ()
+    | Some symbol -> conditionally_add_symbol symbol
+    end
   in
   let process_function_body (function_body : A.function_body) =
     Flambda_iterators.iter_toplevel
@@ -182,9 +186,14 @@ let traverse
         | _ -> ()
         end
       | Q_symbol symbol ->
-        begin match Symbol.Map.find symbol symbol_id with
-        | exception Not_found -> ()
-        | export_id -> conditionally_add_export_id export_id
+        let compilation_unit = Symbol.compilation_unit symbol in
+        if Compilation_unit.is_current compilation_unit then begin
+          match Symbol.Map.find symbol symbol_id with
+          | exception Not_found ->
+            Misc.fatal_errorf "cannot find symbol's export id %a\n"
+              Symbol.print symbol
+          | export_id ->
+            conditionally_add_export_id export_id
         end
       | Q_set_of_closures_id set_of_closures_id ->
         begin match
