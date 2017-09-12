@@ -67,6 +67,7 @@ and value_closure = {
 }
 
 and function_declarations = {
+  is_classic_mode : bool;
   set_of_closures_id : Set_of_closures_id.t;
   set_of_closures_origin : Set_of_closures_origin.t;
   funs : function_declaration Variable.Map.t;
@@ -90,7 +91,6 @@ and function_declaration = {
 }
 
 and value_set_of_closures = {
-  is_classic_mode : bool;
   function_decls : function_declarations;
   bound_vars : t Var_within_closure.Map.t;
   free_vars  : Flambda.specialised_to Variable.Map.t;
@@ -266,7 +266,7 @@ let value_closure ?closure_var ?set_of_closures_var ?set_of_closures_symbol
   }
 
 let import_value_set_of_closures
-      ~is_classic_mode ~(function_decls : function_declarations)
+      ~(function_decls : function_declarations)
       ~bound_vars ~free_vars ~invariant_params ~specialised_args ~freshening
       ~direct_call_surrogates =
   let size =
@@ -289,8 +289,7 @@ let import_value_set_of_closures
             in
             Some (Inlining_cost.lambda_smaller' body ~than:max_size)))
   in
-  { is_classic_mode;
-    function_decls;
+  { function_decls;
     bound_vars;
     free_vars;
     invariant_params;
@@ -300,15 +299,18 @@ let import_value_set_of_closures
     direct_call_surrogates;
   }
 
-let function_declarations_of_flambda ~keep_body_check flambda =
-  let { Flambda. set_of_closures_id ; set_of_closures_origin ; funs } =
-    flambda
+let function_declarations_of_flambda ~classic_keep_body_check flambda =
+  let { Flambda.
+        is_classic_mode;
+        set_of_closures_id;
+        set_of_closures_origin;
+        funs; } = flambda
   in
   let funs : function_declaration Variable.Map.t =
     Variable.Map.mapi
       (fun (key : Variable.t) (fun_decl : Flambda.function_declaration) ->
          let function_body =
-           if keep_body_check key fun_decl
+           if not is_classic_mode || classic_keep_body_check key fun_decl
            then begin
              Some
                { body = fun_decl.body;
@@ -331,23 +333,18 @@ let function_declarations_of_flambda ~keep_body_check flambda =
          })
       funs
   in
-  { set_of_closures_id ; set_of_closures_origin ; funs }
+  { is_classic_mode; set_of_closures_id ; set_of_closures_origin ; funs }
 
-let create_classic_function_declarations ~keep_body_check
+let create_function_declarations ~classic_keep_body_check
       (function_decls : Flambda.function_declarations) =
-  function_declarations_of_flambda ~keep_body_check function_decls
+  function_declarations_of_flambda ~classic_keep_body_check function_decls
 
-let create_normal_function_declarations
-      (function_decls : Flambda.function_declarations) =
-  function_declarations_of_flambda ~keep_body_check:(fun _ _ -> true)
-    function_decls
-
-let create_classic_value_set_of_closures ~keep_body_check
+let create_value_set_of_closures ~classic_keep_body_check
       ~(function_decls : Flambda.function_declarations) ~bound_vars
       ~free_vars ~invariant_params ~specialised_args ~freshening
       ~direct_call_surrogates =
   let function_decls =
-    create_classic_function_declarations ~keep_body_check function_decls
+    create_function_declarations ~classic_keep_body_check function_decls
   in
   let size =
     lazy (
@@ -375,45 +372,7 @@ let create_classic_value_set_of_closures ~keep_body_check
                 function_body.body
             )))
   in
-  { is_classic_mode = true;
-    function_decls;
-    bound_vars;
-    free_vars;
-    invariant_params;
-    size;
-    specialised_args;
-    freshening;
-    direct_call_surrogates;
-  }
-
-let create_normal_value_set_of_closures
-      ~(function_decls : Flambda.function_declarations) ~bound_vars
-      ~free_vars ~invariant_params ~specialised_args ~freshening
-      ~direct_call_surrogates =
-  let size =
-    lazy (
-      let functions = Variable.Map.keys function_decls.funs in
-      Variable.Map.map
-        (fun (function_decl : Flambda.function_declaration) ->
-           let params = Parameter.Set.vars function_decl.params in
-           let free_vars =
-             Variable.Set.diff
-               (Variable.Set.diff function_decl.free_variables params)
-               functions
-           in
-           let num_free_vars = Variable.Set.cardinal free_vars in
-           let max_size =
-             Inlining_cost.maximum_interesting_size_of_function_body
-               num_free_vars
-           in
-           Inlining_cost.lambda_smaller' function_decl.body ~than:max_size)
-        function_decls.funs)
-  in
-  let function_decls =
-    create_normal_function_declarations function_decls
-  in
-  { is_classic_mode = false;
-    function_decls;
+  { function_decls;
     bound_vars;
     free_vars;
     invariant_params;
@@ -1080,8 +1039,10 @@ let get_function_body_exn (fun_decl : function_declaration) =
                               declaration with an empty body."
 
 let import_function_declarations_for_pack function_decls
-    import_set_of_closures_id import_set_of_closures_origin =
-  { set_of_closures_id =
+      import_set_of_closures_id import_set_of_closures_origin =
+  let is_classic_mode = function_decls.is_classic_mode in
+  { is_classic_mode;
+    set_of_closures_id =
       import_set_of_closures_id function_decls.set_of_closures_id;
     set_of_closures_origin =
       import_set_of_closures_origin function_decls.set_of_closures_origin;
@@ -1089,10 +1050,12 @@ let import_function_declarations_for_pack function_decls
   }
 
 let update_function_declarations function_decls ~funs =
+  let is_classic_mode = function_decls.is_classic_mode in
   let compilation_unit = Compilation_unit.get_current_exn () in
   let set_of_closures_id = Set_of_closures_id.create compilation_unit in
   let set_of_closures_origin = function_decls.set_of_closures_origin in
-  { set_of_closures_id;
+  { is_classic_mode;
+    set_of_closures_id;
     set_of_closures_origin;
     funs;
   }
