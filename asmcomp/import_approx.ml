@@ -51,16 +51,29 @@ let import_set_of_closures =
     A.update_function_declarations clos ~funs
   in
   let aux set_of_closures_id =
-    ignore (
-      Compilenv.approx_for_global
+    ignore (Compilenv.approx_for_global
         (Set_of_closures_id.get_compilation_unit set_of_closures_id));
+    let ex_info = Compilenv.approx_env () in
+    let function_declarations =
+      try
+        Some (Set_of_closures_id.Map.find set_of_closures_id
+                ex_info.sets_of_closures)
+      with Not_found -> None
+    in
+    match function_declarations with
+    | None -> None
+    | Some function_declarations ->
+      Some (import_function_declarations function_declarations)
+
+      (*
     match Compilenv.approx_env () with
     | ex_info ->
       try
         Some (import_function_declarations (Set_of_closures_id.Map.find set_of_closures_id
           ex_info.sets_of_closures))
       with
-      | Not_found -> Misc.fatal_error "CR fquah: Cannot find set of closures id"
+         | Not_found -> Misc.fatal_error "CR fquah: Cannot find set of closures id"
+         *)
   in
   Set_of_closures_id.Tbl.memoize Compilenv.imported_sets_of_closures_table aux
 
@@ -172,15 +185,24 @@ and import_approx (ap : Export_info.approx) =
 let import_symbol sym =
   if Compilenv.is_predefined_exception sym then
     A.value_unknown Other
-  else
-    match Compilenv.approx_for_global (Symbol.compilation_unit sym) with
-    | None -> A.value_unresolved (Symbol sym)
-    | Some export_info ->
-      match Symbol.Map.find sym export_info.symbol_id with
-      | approx -> A.augment_with_symbol (import_ex approx) sym
-      | exception Not_found ->
-        Misc.fatal_error "CR fquah: Die symbol"
+  else begin
+    let export_info =
+      Compilenv.approx_for_global (Symbol.compilation_unit sym)
+    in
+    match Symbol.Map.find sym export_info.symbol_id with
+    | approx -> A.augment_with_symbol (import_ex approx) sym
+    | exception Not_found -> A.value_unresolved (Symbol sym)
+  end
 
+(* OLD
+    let symbol_id_map =
+      let global = Symbol.compilation_unit sym in
+      (Compilenv.approx_for_global global).symbol_id
+    in
+    match Symbol.Map.find sym symbol_id_map with
+    | approx -> A.augment_with_symbol (import_ex approx) sym
+       | exception Not_found -> A.value_unresolved (Symbol sym)
+       *)
 (* Note for code reviewers: Observe that [really_import] iterates until
    the approximation description is fully resolved (or a necessary .cmx
    file is missing). *)
