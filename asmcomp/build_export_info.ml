@@ -113,13 +113,12 @@ end = struct
     if Compilenv.is_predefined_exception sym
     then None
     else
-      let export = Compilenv.approx_for_global (Symbol.compilation_unit sym) in
-      try
+      match Compilenv.approx_for_global (Symbol.compilation_unit sym) with
+      | None -> None
+      | Some export ->
         let id = Symbol.Map.find sym export.symbol_id in
-        let descr = Export_info.find_description export id in
-        Some descr
-      with
-      | Not_found -> None
+        try Some (Export_info.find_description export id) with
+        | Not_found -> Misc.fatal_error "CR fquah: Die"
 
   let get_id_descr t export_id =
     try Some (Export_id.Map.find export_id !(t.ex_table))
