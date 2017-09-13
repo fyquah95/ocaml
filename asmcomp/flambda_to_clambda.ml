@@ -19,8 +19,7 @@
 type for_one_or_more_units = {
   fun_offset_table : int Closure_id.Map.t;
   fv_offset_table : int Var_within_closure.Map.t;
-  closures : Simple_value_approx.function_declarations Closure_id.Map.t;
-  constant_sets_of_closures : Set_of_closures_id.Set.t;
+  constant_closures : Set_of_closures_id.Set.t;
 }
 
 type t = {
@@ -66,6 +65,9 @@ let function_declaration_position t closure_id =
       Imported_unit (Closure_id.Map.find closure_id t.imported_units.closures)
     with Not_found -> Not_declared
 
+(* CR fquah: By doing this, we are sacrificing a check on whether the
+ * closure is missing or not.
+ *)
 let is_function_constant t closure_id =
   match function_declaration_position t closure_id with
   | Current_unit { set_of_closures_id } ->
@@ -669,8 +671,7 @@ let convert ~backend (program, exported_transient) : result =
     let imported = Compilenv.approx_env () in
     { fun_offset_table = imported.offset_fun;
       fv_offset_table = imported.offset_fv;
-      closures = imported.closures;
-      constant_sets_of_closures = imported.constant_sets_of_closures;
+      constant_sets_of_closures = imported.constant_closures;
     }
   in
   let t = { current_unit; imported_units; } in
