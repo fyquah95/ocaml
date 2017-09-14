@@ -69,8 +69,6 @@ let import_set_of_closures =
   Set_of_closures_id.Tbl.memoize Compilenv.imported_sets_of_closures_table aux
 
 let rec import_ex ex =
-  ignore (Compilenv.approx_for_global (Export_id.get_compilation_unit ex));
-  let ex_info = Compilenv.approx_env () in
   let import_value_set_of_closures
         ~set_of_closures_id ~bound_vars ~free_vars
         ~(ex_info : Export_info.t) ~what : A.value_set_of_closures option =
@@ -104,68 +102,72 @@ let rec import_ex ex =
         ~freshening:Freshening.Project_var.empty
         ~direct_call_surrogates:Closure_id.Map.empty)
   in
-  match Export_info.find_description ex_info ex with
-  | exception Not_found ->
-    Misc.fatal_errorf "Cannot find export id %a" Export_id.print ex
-  | Value_int i -> A.value_int i
-  | Value_char c -> A.value_char c
-  | Value_constptr i -> A.value_constptr i
-  | Value_float f -> A.value_float f
-  | Value_float_array float_array ->
-    begin match float_array.contents with
-    | Unknown_or_mutable ->
-      A.value_mutable_float_array ~size:float_array.size
-    | Contents contents ->
-      A.value_immutable_float_array
-        (Array.map (function
-           | None -> A.value_any_float
-           | Some f -> A.value_float f)
-           contents)
-    end
-  | Export_info.Value_boxed_int (t, i) -> A.value_boxed_int t i
-  | Value_string { size; contents } ->
-    let contents =
-      match contents with
-      | Unknown_or_mutable -> None
-      | Contents contents -> Some contents
-    in
-    A.value_string size contents
-  | Value_mutable_block _ -> A.value_unknown Other
-  | Value_block (tag, fields) ->
-    A.value_block tag (Array.map import_approx fields)
-  | Value_closure { closure_id;
-        set_of_closures =
-          { set_of_closures_id;
-            bound_vars;
-            free_vars;
-            aliased_symbol } } ->
-    let value_set_of_closures =
-      import_value_set_of_closures
-        ~set_of_closures_id ~bound_vars ~free_vars ~ex_info
-        ~what:(Format.asprintf "Value_closure %a" Closure_id.print closure_id)
-    in
-    begin match value_set_of_closures with
-    | None -> A.value_unresolved (Set_of_closures_id set_of_closures_id)
-    | Some value_set_of_closures ->
-      A.value_closure ?set_of_closures_symbol:aliased_symbol
-        value_set_of_closures closure_id
-    end
-  | Value_set_of_closures { set_of_closures_id;
-                            bound_vars;
-                            free_vars;
-                            aliased_symbol } ->
-    let value_set_of_closures =
-      import_value_set_of_closures ~set_of_closures_id
-        ~bound_vars ~free_vars ~ex_info ~what:"Value_set_of_closures"
-    in
-    match value_set_of_closures with
-    | None ->
-      A.value_unresolved (Set_of_closures_id set_of_closures_id)
-    | Some value_set_of_closures ->
-      let approx = A.value_set_of_closures value_set_of_closures in
-      match aliased_symbol with
-      | None -> approx
-      | Some symbol -> A.augment_with_symbol approx symbol
+  let compilation_unit = Export_id.get_compilation_unit ex in
+  match Compilenv.approx_for_global compilation_unit with
+  | None -> A.value_unknown Other
+  | Some ex_info ->
+    match Export_info.find_description ex_info ex with
+    | exception Not_found ->
+      Misc.fatal_errorf "Cannot find export id %a" Export_id.print ex
+    | Value_int i -> A.value_int i
+    | Value_char c -> A.value_char c
+    | Value_constptr i -> A.value_constptr i
+    | Value_float f -> A.value_float f
+    | Value_float_array float_array ->
+      begin match float_array.contents with
+      | Unknown_or_mutable ->
+        A.value_mutable_float_array ~size:float_array.size
+      | Contents contents ->
+        A.value_immutable_float_array
+          (Array.map (function
+             | None -> A.value_any_float
+             | Some f -> A.value_float f)
+             contents)
+      end
+    | Export_info.Value_boxed_int (t, i) -> A.value_boxed_int t i
+    | Value_string { size; contents } ->
+      let contents =
+        match contents with
+        | Unknown_or_mutable -> None
+        | Contents contents -> Some contents
+      in
+      A.value_string size contents
+    | Value_mutable_block _ -> A.value_unknown Other
+    | Value_block (tag, fields) ->
+      A.value_block tag (Array.map import_approx fields)
+    | Value_closure { closure_id;
+          set_of_closures =
+            { set_of_closures_id;
+              bound_vars;
+              free_vars;
+              aliased_symbol } } ->
+      let value_set_of_closures =
+        import_value_set_of_closures
+          ~set_of_closures_id ~bound_vars ~free_vars ~ex_info
+          ~what:(Format.asprintf "Value_closure %a" Closure_id.print closure_id)
+      in
+      begin match value_set_of_closures with
+      | None -> A.value_unresolved (Set_of_closures_id set_of_closures_id)
+      | Some value_set_of_closures ->
+        A.value_closure ?set_of_closures_symbol:aliased_symbol
+          value_set_of_closures closure_id
+      end
+    | Value_set_of_closures { set_of_closures_id;
+                              bound_vars;
+                              free_vars;
+                              aliased_symbol } ->
+      let value_set_of_closures =
+        import_value_set_of_closures ~set_of_closures_id
+          ~bound_vars ~free_vars ~ex_info ~what:"Value_set_of_closures"
+      in
+      match value_set_of_closures with
+      | None ->
+        A.value_unresolved (Set_of_closures_id set_of_closures_id)
+      | Some value_set_of_closures ->
+        let approx = A.value_set_of_closures value_set_of_closures in
+        match aliased_symbol with
+        | None -> approx
+        | Some symbol -> A.augment_with_symbol approx symbol
 
 and import_approx (ap : Export_info.approx) =
   match ap with
