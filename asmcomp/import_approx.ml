@@ -179,14 +179,17 @@ let import_symbol sym =
   if Compilenv.is_predefined_exception sym then
     A.value_unknown Other
   else begin
-    match
-      Compilenv.approx_for_global (Symbol.compilation_unit sym)
-    with
+    let compilation_unit = (Symbol.compilation_unit sym) in
+    match Compilenv.approx_for_global compilation_unit with
     | None -> A.value_unresolved (Symbol sym)
     | Some export_info ->
       match Symbol.Map.find sym export_info.symbol_id with
       | approx -> A.augment_with_symbol (import_ex approx) sym
-      | exception Not_found -> Misc.fatal_error "Cannot find symbol"
+      | exception Not_found ->
+        Misc.fatal_errorf
+          "Compilation unit = %a Cannot find symbol %a"
+          Compilation_unit.print compilation_unit
+          Symbol.print sym
   end
 
 (* Note for code reviewers: Observe that [really_import] iterates until
