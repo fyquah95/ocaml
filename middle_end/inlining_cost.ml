@@ -71,9 +71,9 @@ let direct_call_size = 4
 let project_size = 1
 
 let lambda_smaller' lam ~than:threshold =
+  let _ = threshold in
   let size = ref 0 in
   let rec lambda_size (lam : Flambda.t) =
-    if !size > threshold then raise Exit;
     match lam with
     | Var _ -> ()
     | Apply ({ func = _; args = _; kind = direct }) ->
@@ -116,7 +116,6 @@ let lambda_smaller' lam ~than:threshold =
     | For { body; _ } ->
       size := !size + 4; lambda_size body
   and lambda_named_size (named : Flambda.named) =
-    if !size > threshold then raise Exit;
     match named with
     | Symbol _ | Read_mutable _ -> ()
     | Const _ | Allocated_const _ -> incr size
@@ -133,12 +132,8 @@ let lambda_smaller' lam ~than:threshold =
       size := !size + prim_size prim args
     | Expr expr -> lambda_size expr
   in
-  try
-    lambda_size lam;
-    if !size <= threshold then Some !size
-    else None
-  with Exit ->
-    None
+  lambda_size lam;
+  Some !size
 
 let lambda_size lam =
   match lambda_smaller' lam ~than:max_int with
@@ -426,47 +421,69 @@ module Whether_sufficient_benefit = struct
     f = f (* is not nan *)
     && f >= 0.
 
-  let estimated_benefit t =
-    if t.toplevel && t.lifting && t.branch_depth = 0 then begin
-      let lifting_benefit =
-        Clflags.Int_arg_helper.get ~key:t.round !Clflags.inline_lifting_benefit
-      in
-        float (t.evaluated_benefit + lifting_benefit)
-    end else begin
-      (* The estimated benefit is the evaluated benefit times an
-         estimation of the probability that the branch does actually matter
-         for performance (i.e. is hot).  The probability is very roughly
-         estimated by considering that under every branch the
-         sub-expressions have the same [1 / (1 + factor)] probability
-         [p] of being hot.  Hence the probability for the current
-         call to be hot is [p ^ number of nested branches].
-         The probability is expressed as [1 / (1 + factor)] rather
-         than letting the user directly provide [p], since for every
-         positive value of [factor] [p] is in [0, 1]. *)
-      let branch_taken_estimated_probability =
-        let inline_branch_factor =
-          let factor =
-            Clflags.Float_arg_helper.get ~key:t.round
-              !Clflags.inline_branch_factor
-          in
-          if not (factor = factor) (* nan *) then
-            Clflags.default_inline_branch_factor
-          else if factor < 0. then
-            0.
-          else
-            factor
+  let estimated_benefit _ = 1.0
+    (*
+    let lifting_benefit =
+      Clflags.Int_arg_helper.get ~key:t.round !Clflags.inline_lifting_benefit
+    in
+    let branch_taken_estimated_probability =
+      let inline_branch_factor =
+        let factor =
+          Clflags.Float_arg_helper.get ~key:t.round
+            !Clflags.inline_branch_factor
         in
-        assert (correct_branch_factor inline_branch_factor);
-        1. /. (1. +. inline_branch_factor)
+        if not (factor = factor) (* nan *) then
+          Clflags.default_inline_branch_factor
+        else if factor < 0. then
+          0.
+        else
+          factor
       in
-      let call_estimated_probability =
-        branch_taken_estimated_probability ** float t.branch_depth
-      in
-      float t.evaluated_benefit *. call_estimated_probability
-    end
+      assert (correct_branch_factor inline_branch_factor);
+      1. /. (1. +. inline_branch_factor)
+    in
+    *)
+
+  let state_oc =
+    open_out_bin "/home/fyquah/dev/machine-learning/inliner/rundir/state"
+
+  let action_in =
+    open_in_bin "/home/fyquah/dev/machine-learning/inliner/rundir/action"
 
   let evaluate t =
-    float t.new_size -. estimated_benefit t <= float t.original_size
+    let benefit = t.benefit in
+    let normalize ~max value =
+      let value = float_of_int value in
+      if value >= max then
+        1.0
+      else
+        value /. max
+    in
+    let norm_bool value = if value then 1. else 0. in
+    let _ = correct_branch_factor in
+    let call_site_state = 
+      Array.of_list
+        [ normalize ~max:10. benefit.remove_call;
+          normalize ~max:10. benefit.remove_alloc;
+          normalize ~max:10. benefit.remove_prim;
+          normalize ~max:10. benefit.remove_branch;
+          normalize ~max:10. benefit.direct_call_of_indirect;
+          normalize ~max:10. benefit.requested_inline;
+          normalize ~max:100. t.original_size;
+          norm_bool t.toplevel;
+
+          (* CR fquah: Consider using [lifting_benefit] here *)
+          norm_bool t.lifting; 
+
+          (* CR fquah: Use [branch_taken_estimated_probability] here *)
+          normalize ~max:10. t.branch_depth;
+        ]
+    in
+    output_value state_oc call_site_state;
+    let action = input_binary_int action_in in
+    if action = 0 then false
+    else if action = 1 then true
+    else Misc.fatal_errorf "Unknown action %d" action
 
   let to_string t =
     let lifting = t.toplevel && t.lifting && t.branch_depth = 0 in

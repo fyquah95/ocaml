@@ -684,8 +684,7 @@ and simplify_apply env r ~(apply : Flambda.apply) : Flambda.t * R.t =
         match A.check_approx_for_closure lhs_of_application_approx with
         | Ok (value_closure, set_of_closures_var,
               set_of_closures_symbol, value_set_of_closures) ->
-          let lhs_of_application, closure_id_being_applied,
-                value_set_of_closures, env, wrap =
+          let lhs_of_application, closure_id_being_applied, env, wrap =
             let closure_id_being_applied = value_closure.closure_id in
             (* If the call site is a direct call to a function that has a
                "direct call surrogate" (see inline_and_simplify_aux.mli),
@@ -693,8 +692,7 @@ and simplify_apply env r ~(apply : Flambda.apply) : Flambda.t * R.t =
             let surrogates = value_set_of_closures.direct_call_surrogates in
             match Closure_id.Map.find closure_id_being_applied surrogates with
             | exception Not_found ->
-              lhs_of_application, closure_id_being_applied,
-                value_set_of_closures, env, (fun expr -> expr)
+              lhs_of_application, closure_id_being_applied, env, (fun expr -> expr)
             | surrogate ->
               let rec find_transitively surrogate =
                 match Closure_id.Map.find surrogate surrogates with
@@ -722,7 +720,7 @@ and simplify_apply env r ~(apply : Flambda.apply) : Flambda.t * R.t =
                   (Move_within_set_of_closures move_to_surrogate)
                   expr
               in
-              surrogate_var, surrogate, value_set_of_closures, env, wrap
+              surrogate_var, surrogate, env, wrap
           in
           let function_decls = value_set_of_closures.function_decls in
           let function_decl =

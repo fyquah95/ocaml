@@ -445,8 +445,12 @@ let specialise env r ~lhs_of_application
               E.set_never_inline_outside_closures env
           in
           let application_env = E.set_never_inline_inside_closures env in
-          let expr, r = simplify closure_env r expr in
-          let res = simplify application_env r expr in
+          (* Simplify only the newly defined closures (ie: function
+             declarations). *)
+          let expr, r = simplify closure_env r expr in 
+          (* Specializes the application of the newly created specialized
+             function declaration. *)
+          let res = simplify application_env r expr in  
           let decision =
             if always_specialise then S.Specialised.Annotation
             else S.Specialised.Without_subfunctions wsb

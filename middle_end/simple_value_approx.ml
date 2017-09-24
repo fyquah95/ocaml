@@ -254,6 +254,9 @@ let create_value_set_of_closures
             Inlining_cost.maximum_interesting_size_of_function_body
               num_free_vars
           in
+          (* CR fquah: Eventually, it might make sense to "learn" this
+           * size approximation as well.
+           *)
           Inlining_cost.lambda_smaller' function_decl.body ~than:max_size)
         function_decls.funs)
   in
