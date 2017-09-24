@@ -63,6 +63,37 @@ CAMLexport struct channel * caml_all_opened_channels = NULL;
 
 /* Functions shared between input and output */
 
+CAMLexport struct channel * caml_open_fifo_in(int fd)
+{
+  struct channel * channel;
+
+  channel = (struct channel *) caml_stat_alloc(sizeof(struct channel));
+  channel->fd = fd;
+  channel->curr = channel->max = channel->buff;
+  channel->end = channel->buff + IO_BUFFER_SIZE;
+  channel->mutex = NULL;
+  channel->revealed = 0;
+  channel->old_revealed = 0;
+  channel->refcount = 0;
+  channel->flags = 0;
+  channel->next = caml_all_opened_channels;
+  channel->prev = NULL;
+  channel->name = NULL;
+  if (caml_all_opened_channels != NULL)
+    caml_all_opened_channels->prev = channel;
+  caml_all_opened_channels = channel;
+  return channel;
+}
+
+CAMLexport struct channel * caml_open_fifo_out(int fd)
+{
+  struct channel * channel;
+
+  channel = caml_open_fifo_in(fd);
+  channel->max = NULL;
+  return channel;
+}
+
 CAMLexport struct channel * caml_open_descriptor_in(int fd)
 {
   struct channel * channel;
@@ -457,6 +488,16 @@ CAMLexport value caml_alloc_channel(struct channel *chan)
                           1, 1000);
   Channel(res) = chan;
   return res;
+}
+
+CAMLprim value caml_ml_open_fifo_in(value fd)
+{
+  return caml_alloc_channel(caml_open_fifo_in(Int_val(fd)));
+}
+
+CAMLprim value caml_ml_open_fifo_out(value fd)
+{
+  return caml_alloc_channel(caml_open_fifo_out(Int_val(fd)));
 }
 
 CAMLprim value caml_ml_open_descriptor_in(value fd)

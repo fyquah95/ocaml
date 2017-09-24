@@ -444,11 +444,27 @@ module Whether_sufficient_benefit = struct
     in
     *)
 
-  let state_oc =
-    open_out_bin "/home/fyquah/dev/machine-learning/inliner/rundir/state"
+  let open_fifo_out name =
+    let mode = [Open_wronly; Open_binary] in
+    let perm = 0o666 in
+    open_out_gen mode perm name
 
+  let open_fifo_in name =
+    let mode = [Open_rdonly; Open_binary] in
+    let perm = 0o444 in
+    open_in_gen mode perm name
+
+  (* ORDERING HERE IS IMPORTANT. Wem ust open the state fifo first before
+   * open the 2 fifos in opposite order in python and ocaml to prevent
+   * a fifo deadlock.
+   *)
   let action_in =
-    open_in_bin "/home/fyquah/dev/machine-learning/inliner/rundir/action"
+    let name = "/home/fyquah/dev/machine-learning/inliner/rundir/action" in
+    open_fifo_in name
+
+  let state_oc =
+    let name = "/home/fyquah/dev/machine-learning/inliner/rundir/state" in
+    open_fifo_out name
 
   let evaluate t =
     let benefit = t.benefit in
@@ -461,25 +477,22 @@ module Whether_sufficient_benefit = struct
     in
     let norm_bool value = if value then 1. else 0. in
     let _ = correct_branch_factor in
+    let initial_state =
+      [ normalize ~max:10. benefit.remove_call;
+        norm_bool t.toplevel;
+      ]
+    in
     let call_site_state = 
-      Array.of_list
-        [ normalize ~max:10. benefit.remove_call;
-          normalize ~max:10. benefit.remove_alloc;
-          normalize ~max:10. benefit.remove_prim;
-          normalize ~max:10. benefit.remove_branch;
-          normalize ~max:10. benefit.direct_call_of_indirect;
-          normalize ~max:10. benefit.requested_inline;
-          normalize ~max:100. t.original_size;
-          norm_bool t.toplevel;
-
-          (* CR fquah: Consider using [lifting_benefit] here *)
-          norm_bool t.lifting; 
-
-          (* CR fquah: Use [branch_taken_estimated_probability] here *)
-          normalize ~max:10. t.branch_depth;
-        ]
+      let rec loop ~ctr state =
+        if ctr = 0 then state
+        else
+          loop ~ctr:(ctr - 1) (List.append state state)
+      in
+      Array.of_list (List.tl (loop ~ctr:2 initial_state))
     in
     output_value state_oc call_site_state;
+    flush state_oc;
+    flush stdout;
     let action = input_binary_int action_in in
     if action = 0 then false
     else if action = 1 then true
