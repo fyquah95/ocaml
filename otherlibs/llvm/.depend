@@ -1,0 +1,115 @@
+all_backends_ocaml.o: all_backends_ocaml.c ../../byterun/caml/alloc.h \
+ ../../byterun/caml/misc.h ../../byterun/caml/config.h \
+ ../../byterun/caml/m.h ../../byterun/caml/s.h \
+ ../../byterun/caml/mlvalues.h ../../byterun/caml/fail.h \
+ ../../byterun/caml/memory.h ../../byterun/caml/custom.h
+analysis_ocaml.o: analysis_ocaml.c ../../byterun/caml/alloc.h \
+ ../../byterun/caml/misc.h ../../byterun/caml/config.h \
+ ../../byterun/caml/m.h ../../byterun/caml/s.h \
+ ../../byterun/caml/mlvalues.h ../../byterun/caml/mlvalues.h \
+ ../../byterun/caml/memory.h
+backend_ocaml.o: backend_ocaml.c ../../byterun/caml/alloc.h \
+ ../../byterun/caml/misc.h ../../byterun/caml/config.h \
+ ../../byterun/caml/m.h ../../byterun/caml/s.h \
+ ../../byterun/caml/mlvalues.h ../../byterun/caml/memory.h
+bitreader_ocaml.o: bitreader_ocaml.c ../../byterun/caml/alloc.h \
+ ../../byterun/caml/misc.h ../../byterun/caml/config.h \
+ ../../byterun/caml/m.h ../../byterun/caml/s.h \
+ ../../byterun/caml/mlvalues.h ../../byterun/caml/fail.h \
+ ../../byterun/caml/memory.h ../../byterun/caml/callback.h
+bitwriter_ocaml.o: bitwriter_ocaml.c ../../byterun/caml/alloc.h \
+ ../../byterun/caml/misc.h ../../byterun/caml/config.h \
+ ../../byterun/caml/m.h ../../byterun/caml/s.h \
+ ../../byterun/caml/mlvalues.h ../../byterun/caml/mlvalues.h \
+ ../../byterun/caml/memory.h
+executionengine_ocaml.o: executionengine_ocaml.c \
+ ../../byterun/caml/alloc.h ../../byterun/caml/misc.h \
+ ../../byterun/caml/config.h ../../byterun/caml/m.h \
+ ../../byterun/caml/s.h ../../byterun/caml/mlvalues.h \
+ ../../byterun/caml/custom.h ../../byterun/caml/fail.h \
+ ../../byterun/caml/memory.h ../../byterun/caml/callback.h
+ipo_ocaml.o: ipo_ocaml.c ../../byterun/caml/mlvalues.h \
+ ../../byterun/caml/config.h ../../byterun/caml/m.h \
+ ../../byterun/caml/s.h ../../byterun/caml/misc.h \
+ ../../byterun/caml/misc.h
+irreader_ocaml.o: irreader_ocaml.c ../../byterun/caml/alloc.h \
+ ../../byterun/caml/misc.h ../../byterun/caml/config.h \
+ ../../byterun/caml/m.h ../../byterun/caml/s.h \
+ ../../byterun/caml/mlvalues.h ../../byterun/caml/fail.h \
+ ../../byterun/caml/memory.h ../../byterun/caml/callback.h
+linker_ocaml.o: linker_ocaml.c ../../byterun/caml/alloc.h \
+ ../../byterun/caml/misc.h ../../byterun/caml/config.h \
+ ../../byterun/caml/m.h ../../byterun/caml/s.h \
+ ../../byterun/caml/mlvalues.h ../../byterun/caml/memory.h \
+ ../../byterun/caml/fail.h ../../byterun/caml/callback.h
+llvm_ocaml.o: llvm_ocaml.c ../../byterun/caml/alloc.h \
+ ../../byterun/caml/misc.h ../../byterun/caml/config.h \
+ ../../byterun/caml/m.h ../../byterun/caml/s.h \
+ ../../byterun/caml/mlvalues.h ../../byterun/caml/custom.h \
+ ../../byterun/caml/memory.h ../../byterun/caml/fail.h \
+ ../../byterun/caml/callback.h
+passmgr_builder_ocaml.o: passmgr_builder_ocaml.c \
+ ../../byterun/caml/mlvalues.h ../../byterun/caml/config.h \
+ ../../byterun/caml/m.h ../../byterun/caml/s.h ../../byterun/caml/misc.h \
+ ../../byterun/caml/custom.h ../../byterun/caml/mlvalues.h \
+ ../../byterun/caml/misc.h
+scalar_opts_ocaml.o: scalar_opts_ocaml.c ../../byterun/caml/mlvalues.h \
+ ../../byterun/caml/config.h ../../byterun/caml/m.h \
+ ../../byterun/caml/s.h ../../byterun/caml/misc.h \
+ ../../byterun/caml/misc.h
+target_ocaml.o: target_ocaml.c ../../byterun/caml/alloc.h \
+ ../../byterun/caml/misc.h ../../byterun/caml/config.h \
+ ../../byterun/caml/m.h ../../byterun/caml/s.h \
+ ../../byterun/caml/mlvalues.h ../../byterun/caml/fail.h \
+ ../../byterun/caml/memory.h ../../byterun/caml/custom.h \
+ ../../byterun/caml/callback.h
+transform_utils_ocaml.o: transform_utils_ocaml.c \
+ ../../byterun/caml/mlvalues.h ../../byterun/caml/config.h \
+ ../../byterun/caml/m.h ../../byterun/caml/s.h ../../byterun/caml/misc.h \
+ ../../byterun/caml/misc.h
+vectorize_ocaml.o: vectorize_ocaml.c ../../byterun/caml/mlvalues.h \
+ ../../byterun/caml/config.h ../../byterun/caml/m.h \
+ ../../byterun/caml/s.h ../../byterun/caml/misc.h \
+ ../../byterun/caml/misc.h
+llvm.cmo : llvm.cmi
+llvm.cmx : llvm.cmi
+llvm.cmi :
+llvm_all_backends.cmo : llvm_all_backends.cmi
+llvm_all_backends.cmx : llvm_all_backends.cmi
+llvm_all_backends.cmi :
+llvm_analysis.cmo : llvm.cmi llvm_analysis.cmi
+llvm_analysis.cmx : llvm.cmx llvm_analysis.cmi
+llvm_analysis.cmi : llvm.cmi
+llvm_bitreader.cmo : llvm.cmi llvm_bitreader.cmi
+llvm_bitreader.cmx : llvm.cmx llvm_bitreader.cmi
+llvm_bitreader.cmi : llvm.cmi
+llvm_bitwriter.cmo : llvm.cmi llvm_bitwriter.cmi
+llvm_bitwriter.cmx : llvm.cmx llvm_bitwriter.cmi
+llvm_bitwriter.cmi : llvm.cmi
+llvm_executionengine.cmo : llvm_target.cmi llvm.cmi llvm_executionengine.cmi
+llvm_executionengine.cmx : llvm_target.cmx llvm.cmx llvm_executionengine.cmi
+llvm_executionengine.cmi : llvm_target.cmi llvm.cmi
+llvm_ipo.cmo : llvm.cmi llvm_ipo.cmi
+llvm_ipo.cmx : llvm.cmx llvm_ipo.cmi
+llvm_ipo.cmi : llvm.cmi
+llvm_irreader.cmo : llvm.cmi llvm_irreader.cmi
+llvm_irreader.cmx : llvm.cmx llvm_irreader.cmi
+llvm_irreader.cmi : llvm.cmi
+llvm_linker.cmo : llvm.cmi llvm_linker.cmi
+llvm_linker.cmx : llvm.cmx llvm_linker.cmi
+llvm_linker.cmi : llvm.cmi
+llvm_passmgr_builder.cmo : llvm.cmi llvm_passmgr_builder.cmi
+llvm_passmgr_builder.cmx : llvm.cmx llvm_passmgr_builder.cmi
+llvm_passmgr_builder.cmi : llvm.cmi
+llvm_scalar_opts.cmo : llvm.cmi llvm_scalar_opts.cmi
+llvm_scalar_opts.cmx : llvm.cmx llvm_scalar_opts.cmi
+llvm_scalar_opts.cmi : llvm.cmi
+llvm_target.cmo : llvm.cmi llvm_target.cmi
+llvm_target.cmx : llvm.cmx llvm_target.cmi
+llvm_target.cmi : llvm.cmi
+llvm_transform_utils.cmo : llvm.cmi llvm_transform_utils.cmi
+llvm_transform_utils.cmx : llvm.cmx llvm_transform_utils.cmi
+llvm_transform_utils.cmi : llvm.cmi
+llvm_vectorize.cmo : llvm.cmi llvm_vectorize.cmi
+llvm_vectorize.cmx : llvm.cmx llvm_vectorize.cmi
+llvm_vectorize.cmi : llvm.cmi
